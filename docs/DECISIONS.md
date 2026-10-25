@@ -12,7 +12,9 @@ With `cashout_demo` and no `OFFRAMP_ZCASH_ADDRESS`, no send happens, so the ZEC 
 
 ## D-003 Claim endpoint behaviour on non-active payouts
 - `/open` reports `claiming` as `available` (a failed send returns it to `active`; a concurrent redeem gets `409 already_processing`).
-- `/unlock` and `/redeem` on a payout that is `claimed`, `expired` or `cancelled` return `410 { error: <status> }`. `locked` returns `423 { error: "locked" }`.
+- `/unlock` on a payout that is `claimed`, `expired` or `cancelled` returns `410 { error: <status> }`; `claiming` returns `409 already_processing`. `locked` returns `423 { error: "locked" }`.
+- `/redeem` on a `claiming` or `claimed` payout returns `409 already_processing` (the M1 double-redeem check); `expired`/`cancelled` return `410`.
+- `/redeem` on an `active` payout whose claim token is wrong or past its TTL returns `401 { error: "claim_session_expired" }` (the client asks for the PIN again), instead of the spec's blanket 409, which would be misleading there.
 - Expiry is enforced lazily on every claim request (an `active`/`locked` payout past `expires_at` is moved to `expired` first) in addition to the job loop, so a link never works past its expiry even between job ticks.
 
 ## D-004 PIN attempts
@@ -50,3 +52,25 @@ If the server dies between `claiming` and the send result, the payout stays `cla
 
 ## D-015 Optional `ANTHROPIC_BASE_URL`
 Added an optional env var passed to the Anthropic SDK client, so the report generator can run through an Anthropic-compatible gateway. Empty means the SDK default.
+
+## D-016 Mock ledger stores an address fingerprint, not the address
+Section 7 gives `mock_ledger` a `to_address` column, but rule 6 forbids storing recipient Zcash addresses. The MockAdapter stores `sha256:<first 16 hex>` of the address instead. It is enough to tell sends apart in tests and reveals nothing.
+
+## D-017 Additive response fields
+Fields added on top of Section 8 (nothing removed or renamed):
+- `GET /api/fund` adds `demoMode`, so the web app knows whether to show the demo cash-out and demo donation tab.
+- `GET /api/admin/overview` adds `settledOffchainZat` (D-002), `zecNgn`, `mode`, `network`.
+- Admin payout and donation lists include pre-formatted `amountNgnDisplay` / `amountZecDisplay`.
+- `POST /api/admin/payouts` returns `201`.
+
+## D-018 Internal note guard
+Besides the UI hint, the API rejects internal notes containing a run of 10 or more digits (Nigerian phone numbers are 11 digits, NUBAN account numbers 10). Names cannot be detected reliably, so they rely on the UI warning.
+
+## D-019 Transparency `outstandingZat`
+`outstandingZat` is the sum of `amount_zat` for open links, without the fee buffer, because the public figure means "money waiting for people". The admin `reservedZat` keeps the fee buffer, as in Section 7.
+
+## D-020 Admin sessions also expire server-side
+cookie-session stores the session in a signed cookie, so `maxAge` alone is only enforced by the browser. The session also carries its issue time, and the API rejects sessions older than 12 hours.
+
+## D-021 Request logging
+The request logger writes only method, path (no query string), status and duration. Claim-link secrets are in the URL fragment and never reach the server. No body, header or cookie is ever logged.

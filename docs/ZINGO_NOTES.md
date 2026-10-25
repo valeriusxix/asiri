@@ -55,7 +55,8 @@ Verified on 2026-10-25 with a raw gRPC call to `cash.z.wallet.sdk.rpc.CompactTxS
 - 14:46: **zingo-cli built** in 19 min (`target/release/zingo-cli.exe`, 78 MB, `--version` prints `Zingo CLI 0.1.1`). No source changes were needed on Windows.
 - 14:46 to about 15:25: `nym-proxy` build (`zingo-netutils` workspace, Nym SDK) compiled 488 crates, then was **stopped by Claude Code because the machine ran critically low on memory** (0.83 GB of 7.85 GB free afterwards, with other apps open). It is not a compile error. Artifacts in `zingo-netutils/target/release` are kept, so a restart resumes. To resume with less memory:
   `cd C:\Users\hp\zingo-build\zingolib && set CARGO_BUILD_JOBS=2 && cargo build --manifest-path zingo-netutils/Cargo.toml --features nym --bin nym-proxy --release && copy zingo-netutils\target\release\nym-proxy.exe target\release\`
-- Without `nym-proxy`, zingo-cli can only run offline (sync and send need the mixnet transport in default builds).
+- 2026-10-25 evening, second attempt (user asked to restart): resumed with `CARGO_BUILD_JOBS=1`, compiled 233 more crates (730 rlibs in `zingo-netutils/target/release/deps`, out of at most 808 lockfile packages) and reached `nym-client-core`, then was **stopped again by Claude Code for low memory** (Claude Code reaps its background shells under memory pressure). No compile error. `nym-proxy.exe` is not built yet. The same resume command continues from here. It is best run in a terminal outside Claude Code, which this reaping does not affect.
+- Without `nym-proxy`, zingo-cli can only run offline (sync and send need the mixnet transport in default builds). The only opt-out is zingo-cli's `nakednet-test-mode` feature, which its `Cargo.toml` marks as "never for use", so it is not an option.
 
 ## Captured outputs (fixtures)
 

@@ -16,7 +16,8 @@ import { devRoutes } from "./routes/dev.js";
 import { publicRoutes } from "./routes/public.js";
 import type { AppContext } from "./services/context.js";
 import { PriceService, type Fetcher } from "./services/price.js";
-import { templateWriter, type ReportWriter } from "./services/reports.js";
+import { createReportWriter } from "./services/reportWriter.js";
+import type { ReportWriter } from "./services/reports.js";
 import { guardAdapter, ZcashError, type ZcashAdapter } from "./zcash/adapter.js";
 import { cacheAdapter } from "./zcash/cache.js";
 
@@ -110,7 +111,7 @@ export function createApp(deps: AppDeps): express.Express {
   api.use("/", publicRoutes(ctx));
   api.use("/claims", claimRoutes(ctx, limiter(limits.claims)));
   api.use("/auth", authRoutes(ctx, limiter(limits.login)));
-  api.use("/admin", adminRoutes(ctx, jobs, deps.reportWriter ?? templateWriter));
+  api.use("/admin", adminRoutes(ctx, jobs, deps.reportWriter ?? createReportWriter(env, logger)));
   if (env.ZCASH_MODE === "mock") api.use("/dev", devRoutes(ctx));
   api.use((_req, res) => {
     res.status(404).json({ error: "not_found" });

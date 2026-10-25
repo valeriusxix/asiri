@@ -84,3 +84,12 @@ Weekly chart: received `#b47700` (Asiri gold, darkened) and paid out `#2a78d6`, 
 
 ## D-024 "Text the PIN" button
 The payout result screen also offers an SMS button prefilled with only the PIN ("Your PIN is 123456. Do not share it."), which makes the separate channel in Section 2.1 one tap away. The WhatsApp and SMS link messages still never contain the PIN.
+
+## D-025 Claude report request settings
+- Model comes from `ANTHROPIC_MODEL` (spec default `claude-sonnet-5-5`), with `max_tokens: 600` as specified.
+- `output_config.effort: "low"`: current models think by default, and thinking tokens count against `max_tokens`. Low effort keeps a 120 to 180 word paragraph from being truncated. Any `stop_reason` other than `end_turn` (refusal, max_tokens, …) falls back to the template.
+- Server-side refusal fallback (`betas: ["server-side-fallback-2026-07-01"]`, `fallbacks: "default"`) is sent only when `ANTHROPIC_BASE_URL` is unset, since it is a first-party Claude API beta and a custom gateway may reject it. Either way, our own template fallback covers refusals.
+- No `temperature` / `top_p` (rejected by the API since 2026-10-21).
+
+## D-026 Report validation
+On top of Section 12's number check (any 3+ digit number not present in the stats rejects the output), the validator also rejects empty text and crypto jargon (`ZEC`, `zatoshi`, `blockchain`, `crypto`, `shielded`, `wallet`), since the text is published on the public page. Numbers allowed are collected from every field of the stats, including the period label, so dates like "2026" pass.

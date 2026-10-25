@@ -1,0 +1,8 @@
+Print the wallet's spendable balance.
+
+
+Usage:  spendable_balance
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,14 @@
+This session is deliberately offline (--offline): network-requiring commands are unavailable, and nothing touches the network. The only exit is to relaunch without --offline.
+Launching save task...
+[
+  {
+    "account": 0,
+    "address_index": 0,
+    "has_orchard": true,
+    "has_sapling": false,
+    "has_transparent": false,
+    "encoded_address": "utest13kd8cenydcxvfspcpwuhph35crh0le8h88jna5whxzx786swevpjeatnymg6t5g7te8sgvhe5fdg6mywxzdke4yej6yscefafc3megs9"
+  }
+]
+Save task shutdown successfully.
+Zingo CLI quit successfully.

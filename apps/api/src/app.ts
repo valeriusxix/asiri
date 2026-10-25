@@ -18,6 +18,7 @@ import type { AppContext } from "./services/context.js";
 import { PriceService, type Fetcher } from "./services/price.js";
 import { templateWriter, type ReportWriter } from "./services/reports.js";
 import { guardAdapter, ZcashError, type ZcashAdapter } from "./zcash/adapter.js";
+import { cacheAdapter } from "./zcash/cache.js";
 
 export interface RateLimits {
   /** Requests per minute per IP. */
@@ -51,9 +52,11 @@ export function createApp(deps: AppDeps): express.Express {
   const { env } = deps;
   const logger = deps.logger ?? createLogger(env.NODE_ENV === "test" ? "silent" : "info");
   const now = deps.now ?? (() => new Date());
+  const guarded = guardAdapter(deps.adapter);
   const ctx: AppContext = {
     db: deps.db,
-    adapter: guardAdapter(deps.adapter),
+    // zingo-cli calls are slow processes behind one mutex; cache what never (or rarely) changes.
+    adapter: env.ZCASH_MODE === "zingo" ? cacheAdapter(guarded) : guarded,
     env,
     logger,
     now,

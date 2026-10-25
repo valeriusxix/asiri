@@ -1,0 +1,8 @@
+Return the wallet ZEC balance for each pool (account 0).
+
+
+Usage:  balance
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

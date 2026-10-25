@@ -1,0 +1,6 @@
+This session is deliberately offline (--offline): network-requiring commands are unavailable, and nothing touches the network. The only exit is to relaunch without --offline.
+Creating a new wallet
+Launching save task...
+{"status":"success","chain_name":"test","address_kind":"unified","receivers_available":["orchard"],"only_orchard_ua":"utest1pmslle44wr0egglc2ec6dxglu6k3qmca2xkrmpcfr8hl5kqpkt9mwxy5lu00qut7xke3sudxtckm5l0x7f2yk3403peep4hppykhh5jn"}
+Save task shutdown successfully.
+Zingo CLI quit successfully.

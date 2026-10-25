@@ -1,0 +1,8 @@
+Print the chain height as of the wallet's last request to the server.
+
+
+Usage:  height
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

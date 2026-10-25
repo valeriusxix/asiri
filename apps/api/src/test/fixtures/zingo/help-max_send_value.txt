@@ -1,0 +1,14 @@
+Print the most the wallet can send to an address: shielded spendable
+balance less the fee. Mid-sync this can trail the confirmed balance.
+
+
+Usage: max_send_value <address>
+       max_send_value { "address": "<address>" }
+
+Arguments:
+  [ARGS]...
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

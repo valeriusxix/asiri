@@ -1,0 +1,74 @@
+A command-line light wallet for Zcash. Runs the given command and exits, or starts the interactive prompt when given none.
+
+Usage: zingo-cli.exe [OPTIONS] [COMMAND]
+
+Commands:
+  addresses               List unified addresses in the wallet.
+  balance                 Return the wallet ZEC balance for each pool (account 0).
+  birthday                Returns block height wallet was created
+  calculate               Sign the latest proposal without transmitting it.
+  change_server           Change indexer server
+  check_address           Checks if the given encoded address is derived by the wallet's keys.
+  clear                   Clear the wallet state, rolling back the wallet to an empty state.
+  coins                   Show the wallet's coins (transparent outputs).
+  confirm                 Build and transmit the latest proposal, then resume sync.
+  current_price           Updates and returns current price of ZEC.
+  delete                  Delete wallet file from disk
+  drain                   Send all Orchard funds into the Ironwood pool now (immediate ZIP 318 path).
+  export_ufvk             Export unified full viewing key for the wallet.
+  height                  Print the chain height as of the wallet's last request to the server.
+  help                    Lists all available commands
+  info                    Get the indexer server's info
+  max_send_value          Print the most the wallet can send to a given address.
+  memobytes_to_address    Show by address memo_bytes transfers for this seed.
+  messages                List memos for this wallet.
+  migrate                 Migrate all Orchard funds to the Ironwood pool in one interactive run.
+  migration               Drive the scheduled Orchard to Ironwood migration
+  network                 Control the network posture and mixnet transport; `network on` switches an unconsented offline session to ONLINE MODE.
+  new_address             Create a new unified address.
+  new_taddress            Create a new transparent address.
+  new_taddress_allow_gap  Create a new transparent address (even if the last one did not receive any funds).
+  notes                   Show the wallet's notes (shielded outputs).
+  parse_address           Parse an address
+  parse_viewkey           Parse a view_key.
+  quicksend               Send ZEC, fusing `send` and `confirm`.
+  quickshield             Shield transparent funds, fusing `shield` and `confirm`.
+  quit                    Quit the light client, saving state to disk.
+  recovery_info           Print the wallet's seed phrase, birthday and account count.
+  remove_transaction      Remove a failed transaction from the wallet.
+  rescan                  Clear all chain-derived wallet data and sync again from the birthday.
+  save                    Launch the save task. Not meant to be called by hand.
+  send                    Propose a transfer of ZEC, for 'confirm' to transmit.
+  send_all                Propose a transfer of all shielded ZEC to one address, for 'confirm' to transmit.
+  sends_to_address        Show by address number of sends for this seed.
+  servers                 Show ranked indexer servers and response times
+  settings                Show or set wallet settings.
+  shield                  Propose a shield of transparent funds, for 'confirm' to transmit.
+  spendable_balance       Display the wallet's spendable balance.
+  split                   Split Orchard notes into ZIP 318 part sizes, one round per call.
+  sync                    Sync the wallet to the latest state of the blockchain.
+  t_addresses             List transparent addresses in the wallet.
+  transactions            List the wallet's transaction summaries by block height.
+  transmit                Transmit calculated transactions to the Indexer.
+  value_to_address        Show by address value transfers for this seed.
+  value_transfers         List all value transfers for this wallet.
+  version                 Get version of build code
+  wallet_kind             Displays the kind of wallet currently loaded
+
+Options:
+  -n, --nosync               By default, zingo-cli will sync the wallet at startup. Pass --nosync to prevent the automatic sync at startup.
+      --waitsync             Block execution of the specified command until the background sync completes. Has no effect if --nosync is set.
+  -c, --chain <CHAIN>        What chain to expect. One of "mainnet", "testnet", or "regtest". Defaults to "mainnet"
+  -s, --seed <SEED PHRASE>   Create a new wallet with the given 24-word seed phrase. Will fail if wallet already exists. A seed passed here is visible in this host's process list and shell history; export ZINGO_SEED instead to keep it to this process and its child.
+      --viewkey <UFVK>       Create a new wallet with the given encoded unified full viewing key. Will fail if wallet already exists
+      --birthday <birthday>  Specify wallet birthday when restoring from seed. This is the earliest block height where the wallet has a transaction. For a NEW wallet created in Offline mode it is instead an optional override of the library's built-in birthday floor.
+      --server <server>      Pin a specific Indexer server. Without it, an online session's Server-Selection Sweep selects the sync indexer.
+      --offline              Run the session in Offline mode: no Indexer is ever configured. Local operations (addresses, balances, history, proposing) work; sync, transmission, and server commands are unavailable.
+      --online               Consent to go online this session (Connectivity Consent). First boot is offline by design; this flag, --remember-online, an explicit --server, or a stored standing consent takes a session online. The choice is not persisted.
+      --remember-online      Consent to go online this session AND store the choice beside the wallet, so future sessions attach to the network automatically. Undo with --forget-online.
+      --forget-online        Remove the stored standing Connectivity Consent before deciding this session's connectivity. Without another consent act the session then runs offline.
+      --nym-proxy <PATH>     Path to the nym-proxy binary spawned for Mixnet Mode. Without it: $ZINGO_NYM_PROXY, then a nym-proxy bundled beside this binary, then `nym-proxy` on PATH. Used only with the `nym` build feature.
+      --data-dir <data-dir>  Absolute path to use as data directory
+      --log-file <PATH>      Path to the log file for interactive mode. Defaults to .zingo-cli/cli.log
+  -h, --help                 Print help
+  -V, --version              Print version

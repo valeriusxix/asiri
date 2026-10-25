@@ -1,0 +1,17 @@
+Propose a transfer of ZEC. Shows the fee, then 'confirm' transmits it.
+
+Example:
+    send ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d 200000 "Hello from the command line"
+    confirm
+
+
+Usage: send <address> <zatoshis> "<optional memo>"
+       send '[{"address":"<address>", "amount":<zatoshis>, "memo":"<optional memo>"}, ...]'
+
+Arguments:
+  [ARGS]...
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,11 @@
+Print the wallet's seed phrase, birthday and account count.
+
+The seed phrase recovers the whole wallet. Save it carefully, share it with
+nobody.
+
+
+Usage:  recovery_info
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

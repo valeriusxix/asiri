@@ -1,5 +1,38 @@
+import { execFile } from "node:child_process";
+import { existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
 import type { Logger } from "../lib/logger.js";
 import { ZcashError, type Network, type WalletBalance, type WalletTx, type ZcashAdapter } from "./adapter.js";
+import { isValidForNetwork, parseReceiveAddress, parseUfvk, parseWalletBalance } from "./zingoParse.js";
+
+// Command names, flags and output formats come from the real zingo-cli 0.4.0 (zingolib_v7.0.0):
+// see docs/ZINGO_NOTES.md and the captured fixtures in src/test/fixtures/zingo.
+
+export interface CliResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+}
+
+/** Runs zingo-cli once with an argument array. Never a shell string; never logs arguments. */
+export type CliRunner = (args: string[], opts: { timeoutMs: number }) => Promise<CliResult>;
+
+export function execFileRunner(cliPath: string): CliRunner {
+  return (args, { timeoutMs }) =>
+    new Promise((resolve, reject) => {
+      execFile(
+        cliPath,
+        args,
+        { timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024, windowsHide: true, killSignal: "SIGKILL" },
+        (err, stdout, stderr) => {
+          const e = err as (NodeJS.ErrnoException & { killed?: boolean; code?: number | string }) | null;
+          if (e?.code === "ENOENT") return reject(new ZcashError("unavailable", "zingo-cli was not found. Check ZINGO_CLI_PATH."));
+          if (e?.killed) return reject(new ZcashError("timeout"));
+          resolve({ stdout, stderr, code: e ? (typeof e.code === "number" ? e.code : 1) : 0 });
+        },
+      );
+    });
+}
 
 export interface ZingoAdapterOptions {
   cliPath: string;
@@ -7,45 +40,72 @@ export interface ZingoAdapterOptions {
   server: string;
   network: Network;
   logger: Logger;
+  runner?: CliRunner;
 }
 
-/**
- * Placeholder until M3. The real implementation is written only after running zingo-cli's help
- * commands and capturing real outputs (Agent.md Section 9.4). Until then every call fails safely.
- */
+const WALLET_FILE = "zingo-wallet.dat";
+const LOCAL_TIMEOUT_MS = 2 * 60_000;
+const SYNC_TIMEOUT_MS = 10 * 60_000;
+
 export class ZingoAdapter implements ZcashAdapter {
   readonly network: Network;
+  private readonly run: CliRunner;
+  private readonly dataDir: string;
 
-  constructor(opts: ZingoAdapterOptions) {
+  constructor(private readonly opts: ZingoAdapterOptions) {
     this.network = opts.network;
+    this.dataDir = path.resolve(opts.dataDir);
+    this.run = opts.runner ?? execFileRunner(opts.cliPath);
   }
 
-  private fail(): never {
-    throw new ZcashError("unavailable", "ZingoAdapter is not implemented yet. Use ZCASH_MODE=mock.");
+  private base(): string[] {
+    return ["--chain", this.network === "testnet" ? "testnet" : "mainnet", "--data-dir", this.dataDir];
+  }
+
+  /** A local command: deliberately offline, nothing touches the network. */
+  private async local(command: string[]): Promise<string> {
+    const r = await this.run([...this.base(), "--offline", ...command], { timeoutMs: LOCAL_TIMEOUT_MS });
+    if (r.code !== 0) throw new ZcashError("unavailable", "The wallet command failed.");
+    return r.stdout;
   }
 
   async init(): Promise<void> {
-    this.fail();
+    mkdirSync(this.dataDir, { recursive: true });
+    if (existsSync(path.join(this.dataDir, WALLET_FILE))) return;
+    // A wallet created online gets a birthday at the current tip, so its first sync is short.
+    await this.sync();
+    this.opts.logger.info(
+      `Treasury wallet created. Back up the seed with: ${this.opts.cliPath} --chain ${this.network} --offline --data-dir "${this.dataDir}" recovery_info`,
+    );
   }
+
   async sync(): Promise<void> {
-    this.fail();
+    throw new ZcashError("unavailable", `sync is not wired yet (timeout ${SYNC_TIMEOUT_MS} ms planned)`);
   }
+
   async getReceiveAddress(): Promise<string> {
-    this.fail();
+    return parseReceiveAddress(await this.local(["addresses"]));
   }
+
   async getUfvk(): Promise<string> {
-    this.fail();
+    return parseUfvk(await this.local(["export_ufvk"])).ufvk;
   }
+
   async getBalance(): Promise<WalletBalance> {
-    this.fail();
+    const balance = await this.local(["balance"]);
+    const spendable = await this.local(["spendable_balance"]);
+    return parseWalletBalance(balance, spendable);
   }
+
   async listTransactions(): Promise<WalletTx[]> {
-    this.fail();
+    throw new ZcashError("unavailable", "listTransactions is not wired yet");
   }
-  async validateAddress(_address: string): Promise<boolean> {
-    this.fail();
+
+  async validateAddress(address: string): Promise<boolean> {
+    return isValidForNetwork(await this.local(["parse_address", address]), this.network);
   }
+
   async send(_toAddress: string, _amountZat: number, _memo?: string): Promise<{ txid: string }> {
-    this.fail();
+    throw new ZcashError("unavailable", "send is not wired yet");
   }
 }

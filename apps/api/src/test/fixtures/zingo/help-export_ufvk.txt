@@ -1,0 +1,9 @@
+Export the wallet's unified full viewing key. To back up spend capability,
+use `recovery_info` instead.
+
+
+Usage:  export_ufvk
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

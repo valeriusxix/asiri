@@ -1,0 +1,9 @@
+List the wallet's value transfers, each one a transaction's notes to a
+single receiver.
+
+
+Usage:  value_transfers
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

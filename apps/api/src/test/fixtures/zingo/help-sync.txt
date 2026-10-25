@@ -1,0 +1,19 @@
+Sync the wallet to the chain tip.
+
+`run` starts or resumes. `pause` halts scanning. `stop` shuts sync down
+early. `status` reports progress. `poll` returns the result once complete,
+and is not meant to be called by hand.
+
+
+Usage:  sync <COMMAND>
+
+Commands:
+  run     Start the sync task, or resume it when paused
+  pause   Pause the sync task's scanning
+  stop    Shut the sync task down early
+  status  Report sync progress
+  poll    Report the finished sync's result. Not meant to be called by hand
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

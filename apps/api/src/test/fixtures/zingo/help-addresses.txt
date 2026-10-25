@@ -1,0 +1,8 @@
+List the wallet's unified addresses.
+
+
+Usage:  addresses
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

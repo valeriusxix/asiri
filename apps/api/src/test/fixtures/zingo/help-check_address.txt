@@ -1,0 +1,12 @@
+Check whether an encoded address derives from the wallet's keys.
+
+
+Usage:  check_address <ADDRESS>
+
+Arguments:
+  <ADDRESS>
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

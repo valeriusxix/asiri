@@ -1,0 +1,15 @@
+Parse an address.
+
+Example
+parse_address tmSwk8bjXdCgBvpS8Kybk5nUyE21QFcDqre
+
+
+Usage:  parse_address <ADDRESS>
+
+Arguments:
+  <ADDRESS>
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

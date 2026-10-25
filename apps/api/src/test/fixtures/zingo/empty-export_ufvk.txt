@@ -1,0 +1,8 @@
+This session is deliberately offline (--offline): network-requiring commands are unavailable, and nothing touches the network. The only exit is to relaunch without --offline.
+Launching save task...
+{
+  "ufvk": "uviewtest1rvct9cdjzhyzpj7pyg2vfvzaprqm9xzc0xck29pdrwyfcxem89ltqzcqlj0cjmqkt72uqphc6kr63kdp4y3kmww25ngtq8pvv26fnfw6k5x9cqlxmeghq8cyepwvanmtqvj7908lu2xl7w6462l0jmclv9e0fjzs76gxnmx4gs3cwe3cgvlnnq0yjrxwx88l68vxwyz3cg3qdkgfav72j6se2epu482mvz97e8p7crcckglghe000y2j7vxxja4ae2sfn54jfkrwdmqf028wff8tgzgnrxxneyrykdtxzy203p97rj3rz95xvn9vn99wl3pgtc9dfdy8628qalyp7t3plldl7374n4echta8gxpdjya8pd6yuqgnqr75y58dpusvuptscp4lgwlf30g60sjtjvqr4ywxzd43uele42ccahkq4mu3ndgdqm3asgpxqz2upj7yay2uq7dhzehm4lur2fjvj75ezypfxcsz403nxf5pryjcyzut",
+  "birthday": 4133900
+}
+Save task shutdown successfully.
+Zingo CLI quit successfully.

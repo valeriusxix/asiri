@@ -1,0 +1,8 @@
+Print the height the wallet was created at.
+
+
+Usage:  birthday
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

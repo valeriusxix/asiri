@@ -13,7 +13,7 @@ export function publicRoutes(ctx: AppContext): Router {
   const r = Router();
 
   r.get("/health", (_req, res) => {
-    res.json({ ok: true, mode: env.ZCASH_MODE, network: env.ZCASH_NETWORK });
+    res.json({ ok: true, mode: env.ZCASH_MODE, network: env.ZCASH_NETWORK, demoMode: env.DEMO_MODE });
   });
 
   r.get("/fund", async (_req, res) => {

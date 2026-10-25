@@ -1,27 +1,72 @@
-import { useEffect, useState } from "react";
-import { api } from "../api";
-import type { Health } from "../types";
+import { Footer, Logo, NetworkPill } from "../components/Layout";
+import { ButtonLink, Icon } from "../components/ui";
+import { home as t } from "../copy";
 
 export function Home() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    api.health().then(setHealth, () => setError(true));
-  }, []);
-
   return (
-    <main className="min-h-dvh bg-ink text-white">
-      <div className="mx-auto max-w-[640px] px-5 py-16">
-        <p className="text-sm font-semibold tracking-widest text-gold">ASIRI</p>
-        <h1 className="mt-3 text-4xl font-bold leading-tight">Private money you can send like a message.</h1>
-        <p className="mt-4 text-lg text-white/75">
-          Asiri helps community funds pay people quickly and privately. Recipients need only a phone.
-        </p>
-        <p className="mt-10 text-sm text-white/60" data-testid="health">
-          {health ? `API ok · ${health.mode} · ${health.network}` : error ? "API unreachable" : "Checking API…"}
-        </p>
-      </div>
-    </main>
+    <div className="flex min-h-dvh flex-col bg-ink text-white">
+      <header className="mx-auto flex h-14 w-full max-w-[960px] items-center gap-2 px-4">
+        <Logo light />
+        <NetworkPill dark />
+      </header>
+
+      <main className="flex-1">
+        <section className="mx-auto max-w-[960px] px-4 pb-14 pt-10 sm:pt-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-gold">{t.eyebrow}</p>
+          <h1 className="mt-4 max-w-[16ch] text-[2.6rem] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">{t.title}</h1>
+          <p className="mt-5 max-w-[36ch] text-lg leading-relaxed text-white/75 sm:text-xl">{t.sub}</p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <ButtonLink to="/donate" size="lg">
+              {t.donate}
+            </ButtonLink>
+            <ButtonLink to="/transparency" size="lg" variant="secondary">
+              {t.transparency}
+            </ButtonLink>
+          </div>
+
+          <div className="mt-12 rounded-3xl bg-white/[0.04] p-5 ring-1 ring-white/10 sm:max-w-md">
+            <p className="text-sm font-semibold text-white/60">{t.recipientTitle}</p>
+            <ul className="mt-3 space-y-2">
+              {t.recipientPoints.map((p) => (
+                <li key={p} className="flex items-center gap-2.5 text-[17px]">
+                  <span className="flex size-6 items-center justify-center rounded-full bg-gold text-ink">
+                    <Icon name="check" className="size-4" />
+                  </span>
+                  {p}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-sm text-gold">{t.recipientNote}</p>
+          </div>
+        </section>
+
+        <section className="bg-[#f7f7f5] text-ink">
+          <div className="mx-auto max-w-[960px] px-4 py-14">
+            <h2 className="text-2xl font-bold tracking-tight">{t.stepsTitle}</h2>
+            <ol className="mt-6 grid gap-4 sm:grid-cols-3">
+              {t.steps.map((s, i) => (
+                <li key={s.title} className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.06]">
+                  <span className="flex size-9 items-center justify-center rounded-full bg-ink text-sm font-bold text-gold">{i + 1}</span>
+                  <h3 className="mt-4 text-lg font-bold">{s.title}</h3>
+                  <p className="mt-1.5 text-[15px] leading-relaxed text-black/65">{s.body}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-[960px] px-4 py-14">
+          <h2 className="text-2xl font-bold tracking-tight">{t.whyTitle}</h2>
+          <p className="mt-4 max-w-[40ch] text-xl font-semibold leading-snug text-gold">{t.whyLead}</p>
+          <div className="mt-4 max-w-2xl space-y-3 text-[17px] leading-relaxed text-white/75">
+            <p>{t.whyBody}</p>
+            <p>{t.whyZcash}</p>
+          </div>
+          <p className="mt-6 text-lg font-bold">{t.whyClose}</p>
+        </section>
+      </main>
+
+      <Footer dark />
+    </div>
   );
 }

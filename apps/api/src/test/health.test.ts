@@ -8,7 +8,7 @@ describe("GET /api/health", () => {
     const { app } = setup();
     const res = await request(app).get("/api/health");
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ ok: true, mode: "mock", network: "testnet" });
+    expect(res.body).toEqual({ ok: true, mode: "mock", network: "testnet", demoMode: true });
   });
 
   it("returns JSON 404 for unknown API routes", async () => {

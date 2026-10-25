@@ -6,7 +6,7 @@ const FORBIDDEN = ["wallet", "seed", "blockchain", "zec", "shielded", "address",
 const START = "// @claim-default:start";
 const END = "// @claim-default:end";
 
-const file = new URL("../apps/web/src/copy.ts", import.meta.url);
+const file = process.argv[2] ?? new URL("../apps/web/src/copy.ts", import.meta.url);
 const source = readFileSync(file, "utf8");
 const start = source.indexOf(START);
 const end = source.indexOf(END);

@@ -58,7 +58,8 @@ Section 7 gives `mock_ledger` a `to_address` column, but rule 6 forbids storing 
 
 ## D-017 Additive response fields
 Fields added on top of Section 8 (nothing removed or renamed):
-- `GET /api/fund` adds `demoMode`, so the web app knows whether to show the demo cash-out and demo donation tab.
+- `GET /api/fund` and `GET /api/health` add `demoMode`, so the web app knows whether to show the demo cash-out and demo donation tab (the claim page reads it from the cheap health call).
+- `GET /api/transparency` `latestReport` adds `stats` (the report's `stats_json`), so the public card shows the numbers beside the text (Section 12).
 - `GET /api/admin/overview` adds `settledOffchainZat` (D-002), `zecNgn`, `mode`, `network`.
 - Admin payout and donation lists include pre-formatted `amountNgnDisplay` / `amountZecDisplay`.
 - `POST /api/admin/payouts` returns `201`.
@@ -74,3 +75,12 @@ cookie-session stores the session in a signed cookie, so `maxAge` alone is only 
 
 ## D-021 Request logging
 The request logger writes only method, path (no query string), status and duration. Claim-link secrets are in the URL fragment and never reach the server. No body, header or cookie is ever logged.
+
+## D-022 Code splitting beyond admin
+Section 11.1 asks for admin routes to be code-split. Donate (QR library) and Transparency (recharts, about 100 KB gzipped) are lazy-loaded too, so the claim page, the one recipients open on low-end phones, ships only React, the router and its own code. The Transparency page starts fetching the chart chunk as soon as its module loads.
+
+## D-023 Chart colors
+Weekly chart: received `#b47700` (Asiri gold, darkened) and paid out `#2a78d6`, checked with a palette validator against the white card (CVD ΔE 26.6, normal-vision ΔE 29.7, both at least 3:1 contrast). The chart always has a legend, a per-bar tooltip, and a "Show as table" view.
+
+## D-024 "Text the PIN" button
+The payout result screen also offers an SMS button prefilled with only the PIN ("Your PIN is 123456. Do not share it."), which makes the separate channel in Section 2.1 one tap away. The WhatsApp and SMS link messages still never contain the PIN.

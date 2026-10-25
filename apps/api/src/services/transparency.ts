@@ -32,7 +32,8 @@ export interface Transparency {
   };
   byCategory: CategoryTotal[];
   weekly: WeekTotal[];
-  latestReport: { body: string; periodStart: string; periodEnd: string; publishedAt: string } | null;
+  /** `stats` lets the public card show the exact numbers beside the text (Agent.md Section 12). */
+  latestReport: { body: string; periodStart: string; periodEnd: string; publishedAt: string; stats: unknown } | null;
   ufvk: string;
   verifyHint: string;
   updatedAt: string;
@@ -96,11 +97,19 @@ function categoryTotals(db: DB, startIso: string, endIso: string): CategoryTotal
 export function latestPublishedReport(db: DB): Transparency["latestReport"] {
   const row = db
     .prepare(
-      `SELECT body, period_start, period_end, published_at FROM reports WHERE published = 1
+      `SELECT body, period_start, period_end, published_at, stats_json FROM reports WHERE published = 1
        ORDER BY published_at DESC, created_at DESC LIMIT 1`,
     )
-    .get() as { body: string; period_start: string; period_end: string; published_at: string } | undefined;
-  return row ? { body: row.body, periodStart: row.period_start, periodEnd: row.period_end, publishedAt: row.published_at } : null;
+    .get() as { body: string; period_start: string; period_end: string; published_at: string; stats_json: string } | undefined;
+  return row
+    ? {
+        body: row.body,
+        periodStart: row.period_start,
+        periodEnd: row.period_end,
+        publishedAt: row.published_at,
+        stats: JSON.parse(row.stats_json) as unknown,
+      }
+    : null;
 }
 
 export async function getTransparency(ctx: AppContext): Promise<Transparency> {

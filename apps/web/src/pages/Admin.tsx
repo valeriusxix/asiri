@@ -235,7 +235,7 @@ function MockFunding({ onDone }: { onDone: () => void }) {
   const add = async (zec: number) => {
     setBusy(true);
     try {
-      await api.dev.mockDonate(zec * 100_000_000);
+      await api.dev.mockDonate(Math.round(zec * 100_000_000));
       onDone();
     } finally {
       setBusy(false);
@@ -248,7 +248,7 @@ function MockFunding({ onDone }: { onDone: () => void }) {
         <p className="text-sm font-semibold">{t.mockTitle}</p>
         <p className="text-sm text-black/60">{t.mockBody}</p>
       </div>
-      {[1, 5].map((z) => (
+      {[0.1, 0.5].map((z) => (
         <Button key={z} size="sm" variant="secondary" disabled={busy} onClick={() => add(z)}>
           {t.mockAdd(z)}
         </Button>

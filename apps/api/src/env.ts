@@ -51,8 +51,8 @@ export const EnvSchema = z
     CLAIM_TOKEN_TTL_MINUTES: int(1, 24 * 60, 15),
 
     PRICE_SOURCE: z.enum(["coingecko", "fixed"]).default("coingecko"),
-    FIXED_ZEC_NGN: z.coerce.number().positive().default(60_000),
-    FIXED_ZEC_USD: z.coerce.number().positive().default(40),
+    FIXED_ZEC_NGN: z.coerce.number().positive().default(1_600_000),
+    FIXED_ZEC_USD: z.coerce.number().positive().default(1_200),
 
     ANTHROPIC_API_KEY: optionalString,
     ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5-5"),

@@ -93,3 +93,6 @@ The payout result screen also offers an SMS button prefilled with only the PIN (
 
 ## D-026 Report validation
 On top of Section 12's number check (any 3+ digit number not present in the stats rejects the output), the validator also rejects empty text and crypto jargon (`ZEC`, `zatoshi`, `blockchain`, `crypto`, `shielded`, `wallet`), since the text is published on the public page. Numbers allowed are collected from every field of the stats, including the period label, so dates like "2026" pass.
+
+## D-027 Fixed fallback rate and seed pricing
+CoinGecko quoted ₦1,616,408 / $1,199 per ZEC on 2026-10-25, against the spec's placeholder of ₦60,000 / $40. `.env.example` and the env defaults now use ₦1,600,000 / $1,200, as Section 6 asks ("update before demo"), so the fallback rate stays in the same range as the live one. The demo seed writes donations in naira and converts them at the rate the app will show (the live quote, or the fixed one), rounded to 3 significant figures of ZEC. Seeded payouts and the public naira totals then add up at whatever price ZEC trades at.

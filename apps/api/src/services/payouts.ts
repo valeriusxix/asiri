@@ -390,8 +390,15 @@ export async function redeemClaim(
     try {
       txid = (await adapter.send(destination, row.amount_zat, PAYOUT_MEMO)).txid;
     } catch (err) {
-      db.prepare(`UPDATE payouts SET status = 'active' WHERE id = ? AND status = 'claiming'`).run(id);
       const code = err instanceof ZcashError ? err.code : "send_failed";
+      if (code === "send_unconfirmed") {
+        // The money may be on its way: reopening the link could pay twice. It stays `claiming` for the organizer to
+        // check against the wallet (D-028); the recipient is told it is being sent.
+        audit(db, "payout.send_unconfirmed", { id, method: input.method }, ctx.now());
+        ctx.logger.error({ payoutId: id }, "payout send unconfirmed; left in claiming for a manual check");
+        throw new HttpError(409, "already_processing");
+      }
+      db.prepare(`UPDATE payouts SET status = 'active' WHERE id = ? AND status = 'claiming'`).run(id);
       audit(db, "payout.claim_failed", { id, method: input.method, code }, ctx.now());
       ctx.logger.warn({ payoutId: id, code }, "payout send failed");
       throw sendErrorToHttp(code);

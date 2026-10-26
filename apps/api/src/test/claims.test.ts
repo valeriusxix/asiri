@@ -1,5 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import { ZcashError } from "../zcash/adapter.js";
 import { createPayout, parseLink, setup, TESTNET_ADDRESS } from "./helpers.js";
 
 const ONE_ZEC = 100_000_000;
@@ -245,6 +246,24 @@ describe("claim flow", () => {
     await h.fund(ONE_ZEC);
     const retry = await request(h.app).post(`/api/claims/${id}/redeem`).send(body);
     expect(retry.status).toBe(200);
+  });
+
+  it("an unconfirmed send keeps the payout claiming, so the link can never pay twice", async () => {
+    const h = setup();
+    await h.fund(ONE_ZEC);
+    const { id, secret, pin } = await createPayout(h);
+    const { claimToken } = (await unlock(h, id, secret, pin)).body;
+    h.mock.send = async () => {
+      throw new ZcashError("send_unconfirmed");
+    };
+    const body = { claimToken, method: "zcash_address", zcashAddress: TESTNET_ADDRESS };
+    const res = await request(h.app).post(`/api/claims/${id}/redeem`).send(body);
+    expect(res.status).toBe(409);
+    expect(res.body).toEqual({ error: "already_processing" });
+    expect(h.db.prepare(`SELECT status FROM payouts WHERE id = ?`).get(id)).toEqual({ status: "claiming" });
+    const again = await request(h.app).post(`/api/claims/${id}/redeem`).send(body);
+    expect(again.status).toBe(409);
+    expect(h.db.prepare(`SELECT type FROM audit_events WHERE type = 'payout.send_unconfirmed'`).all()).toHaveLength(1);
   });
 
   it("demo cash-out: no send, demo flag, bank details never stored, funds stay earmarked", async () => {

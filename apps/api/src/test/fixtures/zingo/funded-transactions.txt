@@ -1,0 +1,29 @@
+
+{
+    txid: 4b2e0785004efeca09d817cfcdf08215443f42e69c5c7f67d753ab8a0145e9f8
+    datetime: 2026-10-26 21:17:55 UTC
+    status: confirmed
+    blockheight: 4545263
+    kind: received
+    value: 100000000
+    fee: 15000
+    zec price: not available
+    pools sent from: 
+    ironwood notes: 
+	{
+            value: 100000000
+            spend status: unspent
+            output index: 0
+            memo: fauzec/v1
+01M5X15XYRGKQ1M7FYH078ANAD
+1793135826149
+https://fauzec.com/help
+        }
+    orchard notes: 
+    sapling notes: 
+    transparent coins: 
+    outgoing ironwood notes: 
+    outgoing orchard notes: 
+    outgoing sapling notes: 
+    outgoing transparent coins: 
+}

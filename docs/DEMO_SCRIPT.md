@@ -74,6 +74,16 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 | No internet at all | Set `PRICE_SOURCE=fixed`. Without `ANTHROPIC_API_KEY`, everything else, including the report template, works offline. |
 | A link was used by mistake | In the admin, **Cancel** it (if still active) and create another payout. A locked link has an **Unlock** button. |
 
-## Testnet variant (not ready for the demo)
+## Testnet proof (show it, don't run it live)
 
-The real-Zcash path (`ZCASH_MODE=zingo`) is only partly built in this version. zingo-cli is wired for reading the address, balance and viewing key, but sends are not wired yet (see `docs/ZINGO_NOTES.md`). Demo in mock mode, and say so honestly: "Same interface, same flow; the testnet adapter is the next step."
+The real-Zcash path (`ZCASH_MODE=zingo`) works end to end on the Zcash testnet. On 2026-10-26 a ₦5,000 Medical payout was claimed to a second testnet wallet: txid `e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`, block 4,545,316 (details in `docs/ZINGO_NOTES.md`).
+
+A live testnet send takes 40 to 200 s over the Nym mixnet and sometimes stalls, so the 3-minute pitch uses the mock treasury. To show that it's real:
+- After step 5, open the explorer link in a normal browser: https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f
+- > "Same interface, same claim page. On testnet this exact flow sent shielded ZEC to a second wallet. Here is the transaction. The explorer can't see who received it."
+
+If you want to run testnet live anyway (allow 5 extra minutes):
+1. Use the `ZCASH_MODE=zingo` settings in the README and `SYNC_INTERVAL_SECONDS=300`.
+2. Click **Sync now** at least 10 minutes before you present.
+3. Keep the payout small (₦5,000).
+4. Start the claim on the phone before you talk through the transparency page, so the send finishes in the background.

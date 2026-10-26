@@ -1,0 +1,14 @@
+{
+  "txids": [
+    "fbc5cfa19837a5e21615e38509a54e36f1c050cd4d630ae2a94e71c343ae2922"
+  ],
+  "transmissions": [
+    {
+      "txid": "fbc5cfa19837a5e21615e38509a54e36f1c050cd4d630ae2a94e71c343ae2922",
+      "over_mixnet": true,
+      "destination": "testnet.zec.rocks",
+      "via_socks5": "127.0.0.1:62132",
+      "rtt_ms": 4370
+    }
+  ]
+}

@@ -37,7 +37,9 @@ export type ZcashErrorCode =
   | "invalid_address"
   | "timeout"
   | "unavailable"
-  | "send_failed";
+  | "send_failed"
+  /** The send may have gone out (it timed out mid-send, or succeeded without a readable txid). Never retry blindly. */
+  | "send_unconfirmed";
 
 const SAFE_MESSAGES: Record<ZcashErrorCode, string> = {
   insufficient_funds: "The treasury does not have enough spendable funds.",
@@ -47,6 +49,7 @@ const SAFE_MESSAGES: Record<ZcashErrorCode, string> = {
   timeout: "The wallet did not respond in time.",
   unavailable: "The wallet is unavailable.",
   send_failed: "The payment could not be sent.",
+  send_unconfirmed: "The payment may have been sent and needs checking.",
 };
 
 /** Typed wallet error. `message` is always safe to show and log (no addresses, seeds, or CLI args). */
@@ -62,10 +65,12 @@ export class ZcashError extends Error {
 
 export interface GuardTimeouts {
   syncMs: number;
+  /** Longer than any adapter's own send timeout, so the adapter (which knows a send may be in flight) reports first. */
+  sendMs: number;
   otherMs: number;
 }
 
-const DEFAULT_TIMEOUTS: GuardTimeouts = { syncMs: 10 * 60_000, otherMs: 2 * 60_000 };
+const DEFAULT_TIMEOUTS: GuardTimeouts = { syncMs: 10 * 60_000, sendMs: 6 * 60_000, otherMs: 2 * 60_000 };
 
 /**
  * Wraps an adapter so every call goes through one mutex (one wallet operation at a time)
@@ -89,6 +94,10 @@ export function guardAdapter(inner: ZcashAdapter, timeouts: GuardTimeouts = DEFA
     getBalance: () => run(() => inner.getBalance(), t),
     listTransactions: () => run(() => inner.listTransactions(), t),
     validateAddress: (address) => run(() => inner.validateAddress(address), t),
-    send: (to, amountZat, memo) => run(() => inner.send(to, amountZat, memo), t),
+    // A guard timeout here means the send may still complete, so it is reported as unconfirmed, never as failed.
+    send: (to, amountZat, memo) =>
+      run(() => inner.send(to, amountZat, memo), timeouts.sendMs).catch((err: unknown) => {
+        throw err instanceof ZcashError && err.code === "timeout" ? new ZcashError("send_unconfirmed") : err;
+      }),
   };
 }

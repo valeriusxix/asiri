@@ -119,8 +119,47 @@ So `ZingoAdapter.init()` creates the treasury with `--server <url> --waitsync he
 - Valar (`POST /api/claim`): accepted the request, then `status: failed`, `message: "the wallet cannot pay this address"` for the Orchard-only UA, the Orchard+Sapling UA and the transparent address alike. Its `/api/status` showed `ready: true`, a balance of about 7,466 TAZ, `paidCount: 0`, and a last recent payout about 2.4 days earlier, so the problem is on the faucet's side. Its `explorerTxUrl` is `https://testnet.zcashexplorer.app/transactions/{txid}` (use this explorer for the M3 txid check).
 - Jino Labs: "Drips are paused for the testnet NU7 upgrade. Zallet, the wallet this faucet sends with, has no NU7 release yet."
 
-## Still to do for M3
+## Funded treasury and the end-to-end claim (2026-10-26 evening)
 
-1. Get testnet ZEC into the treasury: both faucets are down (above), so this needs a person with TAZ, a retry of Valar later, or a request in the Zcash Global Discord.
-2. With funds, capture real `balance`, `transactions`, `value_transfers` and a successful `quicksend` output, then write `listTransactions` and `send` (and its txid parser) from those captures only. Pending funds are checked before sending (`spendable_balance` against `balance`) to return `funds_pending`.
-3. Run a claim end to end to the second wallet and record the txid here, with its explorer link.
+**Funds.** The user got **1 TAZ** into the treasury's Orchard+Sapling address (index 1) from another faucet. Its memo is `fauzec/v1 … https://fauzec.com/help`. The donation was txid `4b2e0785004efeca09d817cfcdf08215443f42e69c5c7f67d753ab8a0145e9f8`, block 4,545,263, 21:17:55 UTC, received into the **Ironwood** pool.
+
+New fixtures:
+
+| File | Command | Format |
+|---|---|---|
+| `funded-balance.txt` | `balance` | Same layout as the empty one, but non-zero amounts have **digit separators**: `confirmed_ironwood_balance: 100_000_000`. The parser strips `_` |
+| `funded-spendable_balance.txt` | `spendable_balance` | `{"spendable_balance": 100000000}` |
+| `funded-transactions.txt`, `funded-value_transfers.txt` | `transactions`, `value_transfers` | **Not JSON.** zingolib's `Display` (`perspective/value_transfer.rs`): `{`, then `    txid / datetime / status / blockheight / transaction fee / zec price / kind / value / recipient_address / pools_sent_from / pools_received / memos` lines in that order, then `\tmemo <n>: <text>` (text may span lines), then `}`. `status` ∈ confirmed, mempool, transmitted, calculated, failed. `kind` ∈ received, sent, send-to-self, shield, memo-to-self, refund, migration |
+| `quicksend-success.txt` (+ `.stderr.txt`) | `--server <url> --nosync quicksend <utest1…> 100000 "Asiri payout"` | Exit code 0. JSON `{"txids": ["<hex>"], "transmissions": [{"txid", "over_mixnet": true, "destination": "testnet.zec.rocks", "via_socks5", "rtt_ms": 4370}]}`. 41 s |
+| `quicksend-transmission-failed.txt` (+ `.stderr.txt`) | the same command, a first attempt | Exit code 1 after 124 s. stderr narrates `quicksend: working (12s elapsed)`, `quicksend: destination …: retrying after a transient error`, `checking whether an earlier attempt was delivered`, then `Error: Send error.` / `Transmission failed. no indexer confirmed delivery after contacting 2 of them`. `zaino.testnet.unsafe.zec.rocks` answered 503, and the mixnet tunnel to `testnet.zec.rocks` timed out. The wallet then listed the attempt as `kind: sent`, `status: failed`, and the full balance stayed spendable |
+
+`listTransactions` reads `value_transfers`. Donations are confirmed `received` transfers only. Payouts are `sent` transfers that didn't fail. Self-sends are skipped. Recipient addresses are never stored, and fixtures contain none.
+
+**Test send** (direct CLI, treasury to the second wallet, 100,000 zat): txid `fbc5cfa19837a5e21615e38509a54e36f1c050cd4d630ae2a94e71c343ae2922`, block **4,545,295**, fee 10,000 zat.
+
+**M3 acceptance run** (the app in `ZCASH_MODE=zingo`, `DATABASE_PATH=./data/testnet.db`, `SYNC_INTERVAL_SECONDS=300`, `npm run build` then `node apps/api/dist/index.js`):
+1. `/donate` showed the treasury's Orchard address (index 0) and its ZIP-321 QR.
+2. Admin "Sync now" (50 s) imported the 1 TAZ donation (₦1,650,040 at the live rate) with its memo. `/transparency` showed Raised 1.00 ZEC.
+3. New payout ₦5,000, Medical (303,023 zat at ₦1,650,040 per ZEC). It was opened, unlocked with its PIN and redeemed through the claim API with `method: zcash_address` to the second wallet. The redeem took 203 s and returned `status: claimed`.
+   - **Claim txid: `e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`**, mined in block **4,545,316**.
+   - Explorer link: https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f
+4. The second wallet, after its own sync, listed it as `kind: received`, `value: 303023`, `memo 1: Asiri payout`.
+5. The admin dashboard showed the payout as Claimed, "Zcash wallet", with the txid. `/transparency` showed Paid out, 1 person helped, and Medical: 1.
+
+**How the txids were verified.** The explorer answered **403 Forbidden** (nginx) to this machine's headless browser, so both txids were checked against the public indexer instead. A raw gRPC `CompactTxStreamer/GetTransaction(TxFilter{hash})` to `https://testnet.zec.rocks:443` returned the raw transaction (9,166 bytes) with `height` 4,545,316 for the claim and 4,545,295 for the test send. The hash must be sent in **reversed byte order** (internal order). Sent in display order, lightwalletd answers "Transaction not found in mempool or best chain". Anyone can open the explorer link above in a normal browser.
+
+## Mixnet bootstrap hangs (operational finding)
+
+Every online session first starts a Nym mixnet session (`start_mixnet_session(..., ForcedOn)` in `zingo-cli/src/lib.rs`, before the server-selection sweep). On 2026-10-26 this sometimes **hung with no output at all and never recovered**. It happened to a job sync (killed at 9.5 min), to `sync status` (120 s), and to `--waitsync height` (241 s). It isn't wallet-specific: the treasury and the second wallet each answered `--nosync info` in 22 to 42 s on one run, and the other one hung for 150 s on the next run. Logs below warn level aren't printed in one-shot mode, so the hang is silent.
+
+What the adapter does about it:
+- Sync timeout 4 minutes (observed syncs: 22 to 113 s). A hung session is killed and the next job tick tries again.
+- Each zingo-cli timeout is shorter than `guardAdapter`'s timeout for the same call, so a hung process is killed before the wallet mutex is released. Two zingo-cli processes never run on one wallet at once.
+- `quicksend` narrates on stderr (`quicksend: …`) about every 10 s once the send starts. Killed with no narration: it never reached the send, so `send_failed` and the link reopens. Killed after narration, or exit 0 without a readable txid: `send_unconfirmed`, so the payout stays `claiming` for a manual check (D-028).
+- Balance reads never queue behind a hung or long sync once a balance is known (D-029).
+
+## Remaining limits
+
+- Sends take 41 to 203 s on the mixnet, so the claim page shows "Sending…" for that long.
+- A payout left in `claiming` by `send_unconfirmed` is resolved by hand: compare the wallet's `value_transfers` with the payout, then update the row. There's no admin button for it.
+- The treasury's change (99,576,977 zat after the claim) needs 3 confirmations (`min_confirmations: 3` in `settings`) before it is spendable again. Until then `send` returns `funds_pending`.

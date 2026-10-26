@@ -11,7 +11,9 @@ import {
   parseReceiveAddress,
   parseSpendable,
   parseUfvk,
+  parseValueTransfers,
   parseWalletBalance,
+  toWalletTxs,
 } from "../zcash/zingoParse.js";
 
 /** Real zingo-cli 0.4.0 output captured on testnet (see docs/ZINGO_NOTES.md). */
@@ -56,6 +58,57 @@ describe("zingoParse (fixtures from the real binary)", () => {
 
   it("parses height", () => {
     expect(parseHeight(fx("empty-height.txt"))).toBe(0);
+  });
+
+  it("parses a funded balance, whose amounts carry digit separators", () => {
+    expect(parseBalanceLines(fx("funded-balance.txt")).ironwood).toEqual({ confirmed: 100_000_000, unconfirmed: 0, total: 100_000_000 });
+    expect(parseWalletBalance(fx("funded-balance.txt"), fx("funded-spendable_balance.txt"))).toEqual({
+      spendableZat: 100_000_000,
+      pendingZat: 0,
+      totalZat: 100_000_000,
+    });
+  });
+
+  it("parses value_transfers, including a memo that spans lines", () => {
+    const vts = parseValueTransfers(fx("funded-value_transfers.txt"));
+    expect(vts).toEqual([
+      {
+        txid: "4b2e0785004efeca09d817cfcdf08215443f42e69c5c7f67d753ab8a0145e9f8",
+        datetime: "2026-10-26T21:17:55.000Z",
+        status: "confirmed",
+        blockheight: 4_545_263,
+        feeZat: 15_000,
+        kind: "received",
+        valueZat: 100_000_000,
+        memos: ["fauzec/v1\n01M5X15XYRGKQ1M7FYH078ANAD\n1793135826149\nhttps://fauzec.com/help"],
+      },
+    ]);
+    expect(toWalletTxs(vts)).toEqual([
+      {
+        txid: "4b2e0785004efeca09d817cfcdf08215443f42e69c5c7f67d753ab8a0145e9f8",
+        direction: "in",
+        amountZat: 100_000_000,
+        feeZat: 15_000,
+        memo: "fauzec/v1\n01M5X15XYRGKQ1M7FYH078ANAD\n1793135826149\nhttps://fauzec.com/help",
+        blockHeight: 4_545_263,
+        timestamp: "2026-10-26T21:17:55.000Z",
+      },
+    ]);
+    expect(parseValueTransfers(fx("empty-value_transfers.txt"))).toEqual([]);
+  });
+
+  it("only counts confirmed receives as donations and skips self-sends", () => {
+    const [vt] = parseValueTransfers(fx("funded-value_transfers.txt"));
+    const base = vt!;
+    expect(toWalletTxs([{ ...base, status: "mempool" }])).toEqual([]);
+    expect(toWalletTxs([{ ...base, kind: "shield" }])).toEqual([]);
+    const sent = toWalletTxs([
+      { ...base, kind: "sent", status: "transmitted", valueZat: 300_000 },
+      { ...base, kind: "sent", status: "transmitted", valueZat: 200_000 },
+    ]);
+    expect(sent).toEqual([expect.objectContaining({ direction: "out", amountZat: 500_000, feeZat: 15_000 })]);
+    expect(sent[0]).not.toHaveProperty("memo");
+    expect(toWalletTxs([{ ...base, kind: "sent", status: "failed" }])).toEqual([]);
   });
 
   it("parses the height printed after an online --waitsync sync", () => {

@@ -67,29 +67,32 @@ npm run typecheck && npm test && npm run build
 
 Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number not in the totals or any crypto jargon. Without a key, the template is used everywhere.
 
-## Testnet mode (work in progress)
+## Testnet mode (verified end to end)
 
-`ZCASH_MODE=zingo` swaps the mock for `zingo-cli` (zingolib v7) talking to a lightwalletd server. State on 2026-10-26:
+`ZCASH_MODE=zingo` swaps the mock for `zingo-cli` (zingolib v7) talking to a lightwalletd server, with sends routed over the Nym mixnet. On 2026-10-26 the full flow ran on the Zcash testnet:
 
-| Done | Not done yet |
-|---|---|
-| zingo-cli v7 and its `nym-proxy` built from the `zingolib_v7.0.0` tag | Testnet funds. Both public faucets were down on 2026-10-26: Valar rejects every address, and Jino Labs paused for NU7. |
-| Testnet server verified: `https://testnet.zec.rocks:443` (ECC lightwalletd v0.5.4, current NU7 chain) | `listTransactions` and `send` (their output formats can only be captured once the treasury has funds) |
-| Treasury wallet created online by `ZingoAdapter.init()`, with sync wired (`--server … --waitsync height`) | End-to-end testnet claim with a recorded txid |
-| Real `help`, online and error outputs captured as fixtures. Parsers are written and tested from those fixtures only. | |
-| Adapter reads: receive address, balance, UFVK and address validation | |
+1. A 1 TAZ donation reached the treasury and was imported by "Sync now".
+2. A ₦5,000 Medical payout was claimed to a second testnet wallet, which received it with the memo "Asiri payout".
+3. The claim's txid was [`e50c15de…98648f`](https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f), mined in block 4,545,316.
 
-Everything found so far, including the build steps, faucets and exact output formats, is in [docs/ZINGO_NOTES.md](docs/ZINGO_NOTES.md). To try what exists:
+Every command, flag and output format came from the real binary: help output, captured fixtures, and tested parsers. See [docs/ZINGO_NOTES.md](docs/ZINGO_NOTES.md).
 
 ```ini
 ZCASH_MODE=zingo
 ZCASH_NETWORK=testnet
 LIGHTWALLETD_URL=https://testnet.zec.rocks:443
-ZINGO_CLI_PATH=/path/to/zingo-cli     # nym-proxy must sit beside it
+ZINGO_CLI_PATH=/path/to/zingo-cli     # nym-proxy must sit beside it (both build from zingolib_v7.0.0)
 TREASURY_DATA_DIR=./data/treasury     # the treasury wallet; back it up
+SYNC_INTERVAL_SECONDS=300             # each testnet sync takes 20 to 120 s
 ```
 
-On first boot the server creates the treasury wallet and prints the command for backing up the seed. It never prints the seed itself.
+On first boot the server creates the treasury wallet online and prints the command for backing up the seed. It never prints the seed itself.
+
+Things to know on testnet:
+- **Slow sends.** A send takes 40 to 200 s over the mixnet, so the claim page says "Sending…" for that long.
+- **Stalled mixnet sessions.** The Nym mixnet bootstrap sometimes stalls a session. The adapter kills stalled sessions, retries syncs on the next tick, and never reopens a link whose send may have gone out (DECISIONS D-028).
+- **Waiting change.** After a payout, the change needs 3 confirmations before the next payout can be sent. Until then the recipient sees "on its way, try again in a few minutes".
+- **Faucets.** On 2026-10-26 the public faucets were down for NU7 (see ZINGO_NOTES).
 
 ## Docker
 
@@ -161,12 +164,12 @@ The full product spec is [Agent.md](Agent.md). Every deviation from it is logged
 4. **The server sees claim secrets at claim time** (Mode A). Mode B, a one-time wallet per link, would reduce what the server holds.
 5. **Naira figures are indicative.** A payout's naira amount is fixed at creation, and other figures use the current rate.
 6. **Card and bank donations are simulated** in this version. They are labelled as such and never counted as money raised.
-7. **A crash mid-send needs a manual check.** If the server dies after a payout enters `claiming` but before the send result is known, the payout stays `claiming` and is not reverted automatically, because the send may have happened (DECISIONS D-014).
-8. **The testnet path is not finished** (see Testnet mode above). The demo runs on the mock treasury.
+7. **An uncertain send needs a manual check.** If the server dies mid-send, or a testnet send times out after it started, the payout stays `claiming` and is not reverted automatically, because the money may have gone out (DECISIONS D-014, D-028). There's no admin button yet to resolve it against the wallet.
+8. **Testnet sends are slow and occasionally stall** on the Nym mixnet (40 to 200 s per send). The live demo uses the mock treasury, and the testnet run is recorded in ZINGO_NOTES with its txids.
 
 ## Roadmap
 
-1. Finish the testnet adapter: sync, send, transaction import, and one end-to-end claim recorded in ZINGO_NOTES.
+1. Admin tools for the real treasury: resolve `claiming` payouts against the wallet's transactions, and show sync health and mixnet status.
 2. Pidgin English toggle for recipient pages.
 3. Mode B: fund a one-time wallet per link, so the server never holds a claimable secret.
 4. Cross-chain donations, swapping into shielded ZEC through an intents or swap provider.

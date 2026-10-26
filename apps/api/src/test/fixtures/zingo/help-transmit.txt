@@ -1,0 +1,21 @@
+Transmit calculated transactions to the Indexer. With no arguments, sends
+every Calculated transaction in target-height order. Pass txids in the order
+'calculate' printed them to fix the order yourself, which multi-step proposals
+such as TEX sends require.
+
+Anything you leave untransmitted stays live value in flight until it expires or
+its inputs are spent.
+
+Example:
+    transmit
+
+
+Usage:  transmit [TXIDS]...
+
+Arguments:
+  [TXIDS]...
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

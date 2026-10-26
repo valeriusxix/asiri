@@ -69,13 +69,14 @@ Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonne
 
 ## Testnet mode (work in progress)
 
-`ZCASH_MODE=zingo` swaps the mock for `zingo-cli` (zingolib v7) talking to a lightwalletd server. State on 2026-10-25:
+`ZCASH_MODE=zingo` swaps the mock for `zingo-cli` (zingolib v7) talking to a lightwalletd server. State on 2026-10-26:
 
 | Done | Not done yet |
 |---|---|
-| zingo-cli v7 built from the `zingolib_v7.0.0` tag | `nym-proxy` build (zingo-cli needs it to go online). It was stopped by low memory on the build machine. |
-| Testnet server verified: `https://testnet.zec.rocks:443` (ECC lightwalletd v0.5.4, current NU7 chain) | Wiring `sync`, `listTransactions` and `send` in `ZingoAdapter` |
-| Real `help` and command outputs captured as fixtures. Parsers are written and tested from those fixtures only. | End-to-end testnet claim with a recorded txid |
+| zingo-cli v7 and its `nym-proxy` built from the `zingolib_v7.0.0` tag | Testnet funds. Both public faucets were down on 2026-10-26: Valar rejects every address, and Jino Labs paused for NU7. |
+| Testnet server verified: `https://testnet.zec.rocks:443` (ECC lightwalletd v0.5.4, current NU7 chain) | `listTransactions` and `send` (their output formats can only be captured once the treasury has funds) |
+| Treasury wallet created online by `ZingoAdapter.init()`, with sync wired (`--server … --waitsync height`) | End-to-end testnet claim with a recorded txid |
+| Real `help`, online and error outputs captured as fixtures. Parsers are written and tested from those fixtures only. | |
 | Adapter reads: receive address, balance, UFVK and address validation | |
 
 Everything found so far, including the build steps, faucets and exact output formats, is in [docs/ZINGO_NOTES.md](docs/ZINGO_NOTES.md). To try what exists:

@@ -1,1 +1,8 @@
-Command info not found
+Print the connected indexer's info.
+
+
+Usage:  info
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

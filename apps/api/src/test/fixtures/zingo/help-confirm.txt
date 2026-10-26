@@ -1,1 +1,13 @@
-Command confirm not found
+Build and transmit the latest proposal, then resume sync. Needs a proposal
+from 'send', 'send_all' or 'shield' first.
+
+Example:
+    send ztestsapling1x65nq4dgp0qfywgxcwk9n0fvm4fysmapgr2q00p85ju252h6l7mmxu2jg9cqqhtvzd69jwhgv8d 200000 "Hello from the command line"
+    confirm
+
+
+Usage:  confirm
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

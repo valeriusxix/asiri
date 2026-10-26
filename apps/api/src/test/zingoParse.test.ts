@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  classifySendFailure,
   extractJson,
   isValidForNetwork,
   parseAddressCheck,
@@ -55,6 +56,20 @@ describe("zingoParse (fixtures from the real binary)", () => {
 
   it("parses height", () => {
     expect(parseHeight(fx("empty-height.txt"))).toBe(0);
+  });
+
+  it("parses the height printed after an online --waitsync sync", () => {
+    expect(parseHeight(fx("waitsync-height.txt"))).toBe(4_542_152);
+  });
+
+  it("classifies a failed quicksend from its stderr", () => {
+    const stderr = fx("quicksend-insufficient.stderr.txt");
+    expect(stderr).toContain("Insufficient balance (have 0, need 20000 including fee)");
+    expect(classifySendFailure(stderr, 10_000)).toBe("insufficient_funds");
+    expect(classifySendFailure("caused by: Insufficient balance (have 15000, need 20000 including fee)", 10_000)).toBe(
+      "insufficient_funds_for_fee",
+    );
+    expect(classifySendFailure("Error: something else", 10_000)).toBe("send_failed");
   });
 
   it("validates addresses per network with parse_address", () => {

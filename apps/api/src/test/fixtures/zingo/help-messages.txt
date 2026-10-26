@@ -1,0 +1,15 @@
+List the wallet's memo-bearing value transfers. An address filters to that
+destination, any other string filters to memos containing it, and no
+argument shows every memo. Received messages are matched on the memo's
+reply-to address.
+
+
+Usage:  messages [FILTER]
+
+Arguments:
+  [FILTER]
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

@@ -1,0 +1,13 @@
+Remove a failed transaction from the wallet. Manual on purpose, so a failed
+send keeps its memos until you decide to drop them.
+
+
+Usage:  remove_transaction <TXID>
+
+Arguments:
+  <TXID>
+          
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

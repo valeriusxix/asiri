@@ -3,7 +3,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import type { Logger } from "../lib/logger.js";
 import { ZcashError, type Network, type WalletBalance, type WalletTx, type ZcashAdapter } from "./adapter.js";
-import { isValidForNetwork, parseReceiveAddress, parseUfvk, parseWalletBalance } from "./zingoParse.js";
+import { isValidForNetwork, parseHeight, parseReceiveAddress, parseUfvk, parseWalletBalance } from "./zingoParse.js";
 
 // Command names, flags and output formats come from the real zingo-cli 0.4.0 (zingolib_v7.0.0):
 // see docs/ZINGO_NOTES.md and the captured fixtures in src/test/fixtures/zingo.
@@ -69,18 +69,28 @@ export class ZingoAdapter implements ZcashAdapter {
     return r.stdout;
   }
 
+  /** An online command. Pinning `--server` is zingo-cli's consent to go online; sends route over the Nym mixnet. */
+  private online(command: string[], timeoutMs: number): Promise<CliResult> {
+    return this.run([...this.base(), "--server", this.opts.server, ...command], { timeoutMs });
+  }
+
   async init(): Promise<void> {
     mkdirSync(this.dataDir, { recursive: true });
     if (existsSync(path.join(this.dataDir, WALLET_FILE))) return;
-    // A wallet created online gets a birthday at the current tip, so its first sync is short.
+    // Creating the wallet online dates its birthday at the chain tip, so the first sync is short. Creating it with
+    // --waitsync also stores shutdown_on_completion in the wallet file, which later --waitsync syncs need in order to
+    // return (docs/ZINGO_NOTES.md).
     await this.sync();
     this.opts.logger.info(
       `Treasury wallet created. Back up the seed with: ${this.opts.cliPath} --chain ${this.network} --offline --data-dir "${this.dataDir}" recovery_info`,
     );
   }
 
+  /** `--waitsync height`: blocks until the startup sync reaches the chain tip, then prints { "height": n }. */
   async sync(): Promise<void> {
-    throw new ZcashError("unavailable", `sync is not wired yet (timeout ${SYNC_TIMEOUT_MS} ms planned)`);
+    const r = await this.online(["--waitsync", "height"], SYNC_TIMEOUT_MS);
+    if (r.code !== 0) throw new ZcashError("unavailable", "Wallet sync failed.");
+    parseHeight(r.stdout);
   }
 
   async getReceiveAddress(): Promise<string> {

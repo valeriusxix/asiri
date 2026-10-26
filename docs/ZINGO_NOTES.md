@@ -83,8 +83,44 @@ Facts observed:
 - `send` usage (from `help send`): `send <address> <zatoshis> "<optional memo>"`, then `confirm`. `recovery_info` prints the seed phrase (used only in the backup message, never captured).
 - One-shot offline calls take about 0.5 to 1.6 s on this laptop.
 
+## Online session (2026-10-26, with nym-proxy built)
+
+`nym-proxy.exe` built at 01:06 on 2026-10-26 (24.5 MB), the user ran the resume command in their own cmd window. It sits beside `zingo-cli.exe` in `target/release`.
+
+New fixtures (saved under `apps/api/src/test/fixtures/zingo/`):
+
+| File | Command | What it shows |
+|---|---|---|
+| `help-online.txt` | `--server <url> --nosync help` | Online sessions add `change_server`, `confirm`, `current_price`, `info`, `migrate`, `network`, `quicksend`, `quickshield`, `rescan`, `transmit` |
+| `help-quicksend.txt`, `help-confirm.txt`, `help-info.txt`, `help-network.txt`, `help-messages.txt`, `help-rescan.txt`, `help-remove_transaction.txt`, `help-transmit.txt` | `help <cmd>` online | `quicksend <address> <zatoshis> "<optional memo>"` fuses `send` and `confirm`, which is what one-shot mode needs |
+| `online-info.txt` (+ `.stderr.txt`) | `--server <url> --nosync info` | JSON: `ECC LightWalletD` v0.5.4, `chain_name: "test"`, `latest_block_height: 4542019`. About 27 s, mostly the Server-Selection Sweep bootstrapping a mixnet transport |
+| `waitsync-height.txt` (+ `.stderr.txt`) | `--server <url> --waitsync height` on a new wallet | JSON `{"height": 4542152}` after the sync finished (42 s to create and sync, 34 s for the next sync) |
+| `quicksend-insufficient.txt` (+ `.stderr.txt`) | `--server <url> --nosync quicksend <utest1…> 10000 "Asiri payout"` from an empty wallet | Exit code 1, empty stdout. stderr: `Error: Send error.` / `caused by: Propose send error.` / `caused by: Insufficient balance (have 0, need 20000 including fee)`. The fee for one small payment is 10,000 zat |
+
+**How sync returns (important).** In one-shot mode, `--waitsync <cmd>` waits for the sync task's result, and a one-shot `sync run` holds the session open until the result. But the sync engine only finishes when the wallet's sync config has `shutdown_on_completion` set (`pepper-sync/src/sync.rs`: a scan that reaches the tip moves the engine to Shutdown only with that flag). That flag is **stored in the wallet file**. `zingo-cli` writes `shutdown_on_completion = --waitsync` only when it creates a wallet (`zingo-cli/src/lib.rs`, `build_zingo_config`), and wallets created without it keep `false`. Observed:
+- A wallet created by `--nosync info`, then `--waitsync height`: no return in 580 s (it reached 159 of 165 blocks, then sat on a one-block `Verify` range).
+- A wallet created by an interactive session: scanned to the tip in about 90 s and kept following new blocks; `--waitsync height` and `--nosync sync run` both still running at 300 s.
+- A wallet **created by** `--waitsync height`: returned in 42 s, and the next `--waitsync height` returned in 34 s.
+
+So `ZingoAdapter.init()` creates the treasury with `--server <url> --waitsync height`, and `sync()` runs the same command (10 minute timeout). A treasury created any other way would make every sync time out.
+
+**Connectivity:** `--server <url>` is the consent to go online. Sync uses a direct connection to the pinned server; sends and price fetches route over the Nym mixnet and "fail closed while it bootstraps" (`help network`). A transient `tls handshake eof` from the server was retried automatically ("automatic recovery 1 of 3").
+
+**Treasury wallet** (`data/treasury`, gitignored). Created 2026-10-26 01:47 by `ZingoAdapter.init()` in 113 s. It logged only the backup command, never the seed.
+- Address index 0, Orchard only (what `/donate` shows): `utest16yp9w0mmexz4yx25tsmjq8jlzs8naq4cvmt46ukdymrpehhwmjl00nqcqqf89fz9apvpkkqjgj9yd4gsududgy5pquagg2sfzut8tj2k`
+- Address index 1, Orchard + Sapling (`new_address oz`): `utest1unytxf6gr7glh2mhwfxmujlchxpkv4psn4eteal23jlxg35qt0aur3qfn06q30rj38nx6ln28qrt8ujdsyfk5f0jd3l9mhrjtwvusq6udefw2ah4eqn89fdp9lltjxe6wmvr7g7q58vm5uwswv5070nzpdf5yc5dp4ypvjwfly7q0yd4`
+- Transparent: `tmVE5iqEQqXcVpp6cRnxyEJYbaK82W9bwhf` (`new_taddress` refuses a second one until this one receives funds)
+
+**NU7 and receivers.** `addresses` reports only Orchard, Sapling and transparent receivers. From zingolib's source: "the Ironwood receiver of a unified address is its orchard receiver", and a payment to an Orchard receiver lands in the Ironwood bundle after NU7. So zingo-to-zingo payouts to Orchard UAs are fine.
+
+**Second wallet (recipient):** `C:\Users\hp\zingo-build\scratch-online3`, created with `--waitsync`, outside the repo. Its address is `utest1p3sk9g7t309wa4…` (110 chars, Orchard).
+
+**Faucets on 2026-10-26 (both unavailable):**
+- Valar (`POST /api/claim`): accepted the request, then `status: failed`, `message: "the wallet cannot pay this address"` for the Orchard-only UA, the Orchard+Sapling UA and the transparent address alike. Its `/api/status` showed `ready: true`, a balance of about 7,466 TAZ, `paidCount: 0`, and a last recent payout about 2.4 days earlier, so the problem is on the faucet's side. Its `explorerTxUrl` is `https://testnet.zcashexplorer.app/transactions/{txid}` (use this explorer for the M3 txid check).
+- Jino Labs: "Drips are paused for the testnet NU7 upgrade. Zallet, the wallet this faucet sends with, has no NU7 release yet."
+
 ## Still to do for M3
 
-1. Build `nym-proxy` (see above), then capture `help quicksend`, `help confirm` and `help info` online.
-2. Create the treasury wallet online against `https://testnet.zec.rocks:443`, claim 0.125 TAZ from the Valar faucet, and capture real `transactions` / `value_transfers` / `quicksend` outputs.
-3. Create a second testnet wallet (another `--data-dir`) as the payout recipient. Run the claim end to end and record the txid here.
+1. Get testnet ZEC into the treasury: both faucets are down (above), so this needs a person with TAZ, a retry of Valar later, or a request in the Zcash Global Discord.
+2. With funds, capture real `balance`, `transactions`, `value_transfers` and a successful `quicksend` output, then write `listTransactions` and `send` (and its txid parser) from those captures only. Pending funds are checked before sending (`spendable_balance` against `balance`) to return `funds_pending`.
+3. Run a claim end to end to the second wallet and record the txid here, with its explorer link.

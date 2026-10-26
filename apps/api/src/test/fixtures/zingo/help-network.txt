@@ -1,0 +1,36 @@
+Control the session's network posture and its mixnet transport
+(the mixnet is Nym; the name is implicit).
+
+With Mixnet Mode on, send and price-fetch route over the mixnet and
+fail closed while it bootstraps, never falling back to nakednet.
+
+WARNING: in an unconsented offline session, `network on` is itself
+the consent act: it switches the session to ONLINE MODE, for this
+session only. The session selects an indexer over the same curated
+ranking that `--online` uses at launch, and only then bootstraps
+the mixnet (ADR 0026). A deliberate --offline session does not
+offer this command; relaunch without --offline instead.
+
+`status` reports off, bootstrapping or ready. `on` starts the
+nym-proxy child, taking the binary from the given path, else
+$ZINGO_NYM_PROXY, else one bundled beside this binary, else PATH.
+`off` disconnects every network capability of the session, keeping
+any stored standing consent; `network on` re-consents (ADR 0032).
+`probe` runs GetLatestBlock over the mixnet route to establish an
+indexer's liveness; it requires the mixnet and touches no
+nakednet endpoint. `history` shows the indexer attempts this
+session recorded; nothing survives the session that made it.
+
+
+Usage:  network [COMMAND]
+
+Commands:
+  status   Report the mixnet state: off, bootstrapping, or ready
+  on       Start the nym-proxy child and route transmissions through the mixnet
+  off      Disconnect every network capability of the session, keeping any stored consent
+  probe    Probe indexer liveness over the mixnet route
+  history  Show per-indexer attempts across sessions
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

@@ -2,7 +2,7 @@
 // Every format here was captured from the real binary; see docs/ZINGO_NOTES.md and
 // apps/api/src/test/fixtures/zingo/*.txt. Do not add a parser without a captured fixture.
 
-import { ZcashError, type Network, type WalletBalance } from "./adapter.js";
+import { ZcashError, type Network, type WalletBalance, type ZcashErrorCode } from "./adapter.js";
 
 /**
  * zingo-cli prints plain log lines ("Launching save task...", "Save task shutdown successfully.")
@@ -113,4 +113,15 @@ const CHAIN_NAME: Record<Network, string> = { testnet: "test", mainnet: "main" }
 export function isValidForNetwork(stdout: string, network: Network): boolean {
   const r = parseAddressCheck(stdout);
   return r.valid && r.chainName === CHAIN_NAME[network];
+}
+
+/**
+ * A failed `quicksend` exits 1 and explains itself on stderr, for example
+ * "caused by: Insufficient balance (have 0, need 20000 including fee)". `need` includes the fee, so when the wallet
+ * has the amount but not the fee, the fee is the problem.
+ */
+export function classifySendFailure(stderr: string, amountZat: number): ZcashErrorCode {
+  const m = /Insufficient balance \(have (\d+), need (\d+) including fee\)/.exec(stderr);
+  if (m) return Number(m[1]) >= amountZat ? "insufficient_funds_for_fee" : "insufficient_funds";
+  return "send_failed";
 }

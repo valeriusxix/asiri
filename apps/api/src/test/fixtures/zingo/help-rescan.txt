@@ -1,0 +1,8 @@
+Clear all chain-derived wallet data and sync again from the birthday.
+
+
+Usage:  rescan
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')

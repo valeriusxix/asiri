@@ -1,6 +1,10 @@
+import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { parse as parseDotenv } from "dotenv";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { parseEnv } from "../env.js";
+import { isPlaceholderSecret, parseEnv, ROOT_DIR } from "../env.js";
 import { setup, TEST_ENV } from "./helpers.js";
 
 describe("GET /api/health", () => {
@@ -34,6 +38,23 @@ describe("parseEnv", () => {
 
   it("rejects the default admin password in production", () => {
     expect(() => parseEnv({ ...TEST_ENV, NODE_ENV: "production", ADMIN_PASSWORD: "change-me-now" })).toThrow(/ADMIN_PASSWORD/);
+  });
+
+  it("boots from .env.example in development, but production refuses its public SESSION_SECRET (audit H1)", () => {
+    const example = parseDotenv(readFileSync(path.join(ROOT_DIR, ".env.example"), "utf8"));
+    expect(() => parseEnv(example)).not.toThrow();
+    // Changing only the password (which production already forces) must not be enough.
+    expect(() => parseEnv({ ...example, NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123" })).toThrow(/SESSION_SECRET/);
+    const random = randomBytes(32).toString("hex");
+    expect(() => parseEnv({ ...example, NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123", SESSION_SECRET: random })).not.toThrow();
+  });
+
+  it("refuses non-random session secrets in production", () => {
+    const prod = { ...TEST_ENV, NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123" };
+    for (const secret of ["s".repeat(64), "0".repeat(40), "replace-with-something-random-later-please", "change-me-change-me-change-me-change-me"]) {
+      expect(() => parseEnv({ ...prod, SESSION_SECRET: secret })).toThrow(/SESSION_SECRET/);
+    }
+    expect(isPlaceholderSecret(randomBytes(32).toString("base64url"))).toBe(false);
   });
 
   it("requires LIGHTWALLETD_URL in zingo mode", () => {

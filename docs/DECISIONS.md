@@ -102,3 +102,6 @@ D-005 returns a payout to `active` when a send fails. That is only safe when not
 
 ## D-029 Stale-while-revalidate balance cache (zingo mode)
 A testnet sync holds the wallet mutex for up to 4 minutes, and the admin dashboard queued behind it (271 s seen). Once a balance is known, `cacheAdapter` returns it immediately when it is older than its 15 s TTL or a sync has run, and refreshes it in the background (one refresh at a time). A send clears the cached balance completely and discards any refresh started before it. Otherwise the pre-send balance would overstate what is available for new payouts. `send` itself always reads the real balance before transmitting.
+
+## D-030 Production refuses placeholder session secrets (audit H1)
+The `.env.example` `SESSION_SECRET` is public and long enough to pass the 32-character rule, so anyone could sign an admin session cookie with it. In production, boot also refuses a secret that contains `replace-with`, `change-me` or `example`, or has fewer than 10 distinct characters, and prints the command that generates a new one. Development still boots from `.env.example` unchanged.

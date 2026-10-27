@@ -22,6 +22,8 @@ export interface WeekTotal {
 export interface Transparency {
   fundName: string;
   network: Network;
+  /** "mock": the totals and the viewing key are placeholders, and the web app labels them Demo (audit H2). */
+  mode: "mock" | "zingo";
   currency: { zecNgn: number; source: string };
   totals: {
     receivedZat: number;
@@ -130,6 +132,7 @@ export async function getTransparency(ctx: AppContext): Promise<Transparency> {
   return {
     fundName: env.FUND_NAME,
     network: env.ZCASH_NETWORK,
+    mode: env.ZCASH_MODE,
     currency: { zecNgn: quote.zecNgn, source: quote.source },
     totals: {
       receivedZat: all.receivedZat,

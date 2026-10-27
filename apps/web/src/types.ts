@@ -24,6 +24,7 @@ export interface Fund {
   ufvk: string;
   paymentUri: string;
   demoMode: boolean;
+  mode: "mock" | "zingo";
 }
 
 export interface Price {
@@ -51,6 +52,7 @@ export interface ReportStats {
 export interface Transparency {
   fundName: string;
   network: Network;
+  mode: "mock" | "zingo";
   currency: { zecNgn: number; source: string };
   totals: {
     receivedZat: number;

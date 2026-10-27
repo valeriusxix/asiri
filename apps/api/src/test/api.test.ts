@@ -87,6 +87,12 @@ describe("public routes", () => {
     expect(res.body.demoMode).toBe(true);
   });
 
+  it("tells the web app when the address, totals and viewing key are mock placeholders (audit H2)", async () => {
+    const h = setup();
+    expect((await request(h.app).get("/api/fund")).body.mode).toBe("mock");
+    expect((await request(h.app).get("/api/transparency")).body.mode).toBe("mock");
+  });
+
   it("GET /api/price returns the fixed rate", async () => {
     const h = setup();
     const res = await request(h.app).get("/api/price");

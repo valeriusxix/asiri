@@ -55,8 +55,8 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 
 ### 5. Accountability (35 s), on the `/transparency` tab (refresh it)
 - **Paid out** and **People helped** have gone up, and this week's bar has grown. **Payments by need** shows Medical.
-- Scroll to **Verify it yourself**, which shows the fund's viewing key (UFVK).
-- > "Anyone can load this viewing key and check every number on this page. Nobody can see who received money."
+- Scroll to **Verify it yourself**, which shows the fund's viewing key (UFVK). In mock mode the page labels it **Demo**, because the mock treasury's key is a placeholder that no wallet will import. Don't invite anyone to import it.
+- > "With the real treasury on Zcash, anyone can load the fund's viewing key and check these totals against the payments themselves. Here it's a mock treasury, so the key is a placeholder, as the page says. Either way, nobody can see who received money."
 - Read two lines of **Latest update**, the plain-language report written from totals only.
 - > "Donors see that money moved. Nobody sees who received it."
 

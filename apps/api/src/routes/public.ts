@@ -26,6 +26,7 @@ export function publicRoutes(ctx: AppContext): Router {
       ufvk: await ctx.adapter.getUfvk(),
       paymentUri: buildPaymentUri({ address: receiveAddress, message: `Donation to ${env.FUND_NAME}` }),
       demoMode: env.DEMO_MODE,
+      mode: env.ZCASH_MODE,
     });
   });
 

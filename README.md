@@ -73,7 +73,18 @@ Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonne
 
 1. A 1 TAZ donation reached the treasury and was imported by "Sync now".
 2. A ₦5,000 Medical payout was claimed to a second testnet wallet, which received it with the memo "Asiri payout".
-3. The claim's txid was [`e50c15de…98648f`](https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f), mined in block 4,545,316.
+3. The claim's txid was `e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`, mined in block 4,545,316 (hash `00002a00…161ad1`).
+
+Check it yourself against the public testnet server, without trusting an explorer:
+
+```bash
+node scripts/verify-testnet-tx.mjs e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f
+# mined in      block 4545316 (… confirmations)
+# block hash    00002a0013927b0ce5905b60183abfb835aee9cd9330b78b217375f4ad161ad1
+# in block list yes
+```
+
+The script asks lightwalletd for the transaction's block, then for that block's contents. The testnet explorer at testnet.zcashexplorer.app did not list this NU7-era transaction on 2026-10-27 ("may not exist or may not yet be indexed"), while the server it was mined on matched the Valar faucet's NU7 node height exactly.
 
 Every command, flag and output format came from the real binary: help output, captured fixtures, and tested parsers. See [docs/ZINGO_NOTES.md](docs/ZINGO_NOTES.md).
 
@@ -151,7 +162,7 @@ apps/api/src   index.ts (boot), app.ts (factory used by tests), env.ts, db/, lib
 apps/web/src   pages/, components/, copy.ts (every user-facing string), api.ts, types.ts
 docs/          DECISIONS.md (every spec ambiguity and its resolution), ZINGO_NOTES.md, DEMO_SCRIPT.md
 docker/        Dockerfile
-scripts/       check-copy.mjs, curl-walkthrough.sh
+scripts/       check-copy.mjs, curl-walkthrough.sh, verify-testnet-tx.mjs
 ```
 
 The full product spec is [Agent.md](Agent.md). Every deviation from it is logged in [docs/DECISIONS.md](docs/DECISIONS.md).

@@ -142,11 +142,14 @@ New fixtures:
 2. Admin "Sync now" (50 s) imported the 1 TAZ donation (₦1,650,040 at the live rate) with its memo. `/transparency` showed Raised 1.00 ZEC.
 3. New payout ₦5,000, Medical (303,023 zat at ₦1,650,040 per ZEC). It was opened, unlocked with its PIN and redeemed through the claim API with `method: zcash_address` to the second wallet. The redeem took 203 s and returned `status: claimed`.
    - **Claim txid: `e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`**, mined in block **4,545,316**.
-   - Explorer link: https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f
+   - Block 4,545,316: hash `00002a0013927b0ce5905b60183abfb835aee9cd9330b78b217375f4ad161ad1`, prev `000019e2b4e648ef84ce8250fab01e20c4b3925e4b60ddfed8420f55747fba07`, time 2026-10-26 21:42:03 UTC. It holds 3 shielded transactions, including this one.
+   - Re-check any time: `node scripts/verify-testnet-tx.mjs <txid>`.
 4. The second wallet, after its own sync, listed it as `kind: received`, `value: 303023`, `memo 1: Asiri payout`.
 5. The admin dashboard showed the payout as Claimed, "Zcash wallet", with the txid. `/transparency` showed Paid out, 1 person helped, and Medical: 1.
 
-**How the txids were verified.** The explorer answered **403 Forbidden** (nginx) to this machine's headless browser, so both txids were checked against the public indexer instead. A raw gRPC `CompactTxStreamer/GetTransaction(TxFilter{hash})` to `https://testnet.zec.rocks:443` returned the raw transaction (9,166 bytes) with `height` 4,545,316 for the claim and 4,545,295 for the test send. The hash must be sent in **reversed byte order** (internal order). Sent in display order, lightwalletd answers "Transaction not found in mempool or best chain". Anyone can open the explorer link above in a normal browser.
+**How the txids were verified.** The explorer answered **403 Forbidden** (nginx) to this machine's headless browser, so both txids were checked against the public indexer instead. A raw gRPC `CompactTxStreamer/GetTransaction(TxFilter{hash})` to `https://testnet.zec.rocks:443` returned the raw transaction (9,166 bytes) with `height` 4,545,316 for the claim and 4,545,295 for the test send. The hash must be sent in **reversed byte order** (internal order). Sent in display order, lightwalletd answers "Transaction not found in mempool or best chain".
+
+On 2026-10-27 the user opened `https://testnet.zcashexplorer.app/transactions/e50c15de…` in a normal browser and got "The transaction may not exist or may not yet be indexed." The same morning, `testnet.zec.rocks` still returned the claim at height 4,545,316 (2,110 confirmations). Its tip (4,547,420) was identical to the Valar faucet's NU7 node height, and `GetBlock(4545316)` listed the claim among the block's 3 shielded transactions. So the explorer is behind or on the pre-NU7 split chain, not the transaction missing. `scripts/verify-testnet-tx.mjs` makes the check repeatable: it calls `GetTransaction`, then `GetBlock` and `GetLatestBlock`, using no dependencies.
 
 ## Mixnet bootstrap hangs (operational finding)
 

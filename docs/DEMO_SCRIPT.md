@@ -79,8 +79,11 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 The real-Zcash path (`ZCASH_MODE=zingo`) works end to end on the Zcash testnet. On 2026-10-26 a ₦5,000 Medical payout was claimed to a second testnet wallet: txid `e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`, block 4,545,316 (details in `docs/ZINGO_NOTES.md`).
 
 A live testnet send takes 40 to 200 s over the Nym mixnet and sometimes stalls, so the 3-minute pitch uses the mock treasury. To show that it's real:
-- After step 5, open the explorer link in a normal browser: https://testnet.zcashexplorer.app/transactions/e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f
-- > "Same interface, same claim page. On testnet this exact flow sent shielded ZEC to a second wallet. Here is the transaction. The explorer can't see who received it."
+- After step 5, run this in a terminal (about 2 s, and it needs internet):
+  `node scripts/verify-testnet-tx.mjs e50c15de6c0d0838a68115af8e97098543b477012b3c7e2f4134d63ff798648f`
+  It prints the block (4,545,316), its hash and "in block list yes".
+- > "Same interface, same claim page. On testnet this exact flow sent shielded ZEC to a second wallet. Here is the transaction in the chain. Nobody can see who received it or how much."
+- Don't use the testnet.zcashexplorer.app link. On 2026-10-27 it did not list this transaction ("may not exist or may not yet be indexed"), probably because it has not followed the NU7 chain.
 
 If you want to run testnet live anyway (allow 5 extra minutes):
 1. Use the `ZCASH_MODE=zingo` settings in the README and `SYNC_INTERVAL_SECONDS=300`.

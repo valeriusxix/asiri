@@ -99,6 +99,10 @@ export const transparencyCopy = {
   noPayments: "No payments have been collected yet.",
   reportTitle: "Latest update",
   reportPeriod: (start: string, end: string) => `${start} to ${end}`,
+  // The report card covers its own period, not all time like the tiles above it (audit L10).
+  periodRaised: "Raised in this period",
+  periodPaidOut: "Paid out in this period",
+  periodPayments: "Payments in this period",
   noReport: "No update has been published yet.",
   verifyTitle: "Verify it yourself",
   ufvkLabel: "Fund viewing key (UFVK)",

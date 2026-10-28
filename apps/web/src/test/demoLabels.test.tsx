@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { NetworkPillView } from "../components/Layout";
+import { axisTicks } from "../components/WeeklyChart";
 import { donate, transparencyCopy } from "../copy";
 import { ZcashCard } from "../pages/Donate";
 import { TransparencyBody } from "../pages/Transparency";
@@ -84,5 +85,31 @@ describe("demo cash-outs are labelled where they are counted (audit M1)", () => 
 
   it("shows nothing extra when every payment was real", () => {
     expect(text(<TransparencyBody data={transparency("zingo")} />)).not.toContain(transparencyCopy.demoCashouts);
+  });
+});
+
+describe("the report card and chart don't look like they disagree with the totals (audit L10)", () => {
+  it("labels the report figures as this period, not all time", () => {
+    const data = transparency("zingo");
+    data.latestReport = {
+      body: "Here is the update.",
+      periodStart: "2026-09-28T00:00:00.000Z",
+      periodEnd: "2026-10-28T00:00:00.000Z",
+      publishedAt: "2026-10-28T00:00:00.000Z",
+      stats: {
+        fundName: "Test Relief Fund", periodStart: "2026-09-28", periodEnd: "2026-10-28", periodLabel: "28 September 2026 to 28 October 2026",
+        periodDays: 30, rateZecNgn: 1_600_000, donationsReceived: "₦25,000", donationsCount: 1, simulatedDonations: "₦0",
+        paidOut: "₦10,000", paymentsCount: 1, demoCashouts: "₦0", demoCashoutsCount: 0, waitingToBeClaimed: "₦0", byCategory: [],
+      },
+    };
+    const out = text(<TransparencyBody data={data} />);
+    for (const label of [transparencyCopy.periodRaised, transparencyCopy.periodPaidOut, transparencyCopy.periodPayments]) expect(out).toContain(label);
+  });
+
+  it("labels every other week, evenly, always including the latest", () => {
+    const weeks = ["7 Sept", "14 Sept", "21 Sept", "28 Sept", "5 Oct", "12 Oct", "19 Oct", "26 Oct"];
+    expect(axisTicks(weeks)).toEqual(["14 Sept", "28 Sept", "12 Oct", "26 Oct"]);
+    expect(axisTicks(weeks.slice(0, 7))).toEqual(["7 Sept", "21 Sept", "5 Oct", "19 Oct"]);
+    expect(axisTicks([])).toEqual([]);
   });
 });

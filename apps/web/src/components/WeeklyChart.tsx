@@ -17,6 +17,14 @@ interface Row {
   paidZat: number;
 }
 
+/**
+ * X-axis labels: every other week, counted back from the latest, so they are evenly spaced and the current week is
+ * always labelled. Recharts' "preserveStartEnd" skipped unevenly (7 Sept, 21 Sept, 5 Oct, 26 Oct), audit L10.
+ */
+export function axisTicks(weeks: string[]): string[] {
+  return weeks.filter((_, i) => (weeks.length - 1 - i) % 2 === 0);
+}
+
 function ChartTooltip({ active, payload }: TooltipContentProps) {
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload as Row;
@@ -91,7 +99,7 @@ export default function WeeklyChart({ weekly, zecNgn }: { weekly: Transparency["
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={rows} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
               <CartesianGrid vertical={false} stroke="#00000012" />
-              <XAxis dataKey="week" tickLine={false} axisLine={{ stroke: "#00000026" }} tick={{ fontSize: 11, fill: "#00000099" }} interval="preserveStartEnd" />
+              <XAxis dataKey="week" tickLine={false} axisLine={{ stroke: "#00000026" }} tick={{ fontSize: 11, fill: "#00000099" }} ticks={axisTicks(rows.map((r) => r.week))} interval={0} />
               <YAxis tickFormatter={compactNgn} tickLine={false} axisLine={false} width={48} tick={{ fontSize: 11, fill: "#00000099" }} />
               <Tooltip content={(props) => <ChartTooltip {...props} />} cursor={{ fill: "#0000000a" }} />
               <Bar dataKey="received" name={t.chartReceived} fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={22} />

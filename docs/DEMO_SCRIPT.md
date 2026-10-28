@@ -12,7 +12,10 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
    PRICE_SOURCE=fixed                        # optional: numbers will not move during the pitch
    FIXED_ZEC_NGN=1600000                     # set to today's rate if you use fixed
    ANTHROPIC_API_KEY=sk-ant-...              # optional: AI-written update; without it the template is used
+   ADMIN_PASSWORD=<a password only you know> # required: the default is printed in the README
+   SESSION_SECRET=<64 random hex chars>      # required: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
+   **Change `ADMIN_PASSWORD` and `SESSION_SECRET` before every demo.** The laptop can be reached by everyone on the venue Wi-Fi, and the defaults are public. With them, anyone there could log in as the organizer mid-pitch, or forge the session cookie, then cancel your payout or create their own. The server prints a warning at startup while either default is still in use.
    Keep `NODE_ENV=development`. Production mode sets secure cookies, which need HTTPS.
 3. **Build, seed and start on one port:**
    ```bash
@@ -55,8 +58,8 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 
 ### 5. Accountability (35 s), on the `/transparency` tab (refresh it)
 - **Paid out** and **People helped** have gone up, and this week's bar has grown. **Payments by need** shows Medical.
-- Scroll to **Verify it yourself**, which shows the fund's viewing key (UFVK).
-- > "Anyone can load this viewing key and check every number on this page. Nobody can see who received money."
+- Scroll to **Verify it yourself**, which shows the fund's viewing key (UFVK). In mock mode the page labels it **Demo**, because the mock treasury's key is a placeholder that no wallet will import. Don't invite anyone to import it.
+- > "With the real treasury on Zcash, anyone can load the fund's viewing key and check these totals against the payments themselves. Here it's a mock treasury, so the key is a placeholder, as the page says. Either way, nobody can see who received money."
 - Read two lines of **Latest update**, the plain-language report written from totals only.
 - > "Donors see that money moved. Nobody sees who received it."
 

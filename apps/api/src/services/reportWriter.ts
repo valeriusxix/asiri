@@ -15,9 +15,11 @@ Rules:
 
 const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
 const normalize = (n: string) => n.replace(/,/g, "").replace(/\.$/, "");
-const digitCount = (n: string) => n.replace(/\D/g, "").length;
 
-/** Every number that appears anywhere in the stats (amounts, counts, rate, dates), comma-free. */
+/**
+ * Every number that appears anywhere in the stats (amounts, counts, dates), comma-free. The ZEC rate is left out: the
+ * text must never mention ZEC, so a rate-sized figure in it can only be invented (audit M2).
+ */
 export function allowedNumbers(stats: ReportStats): Set<string> {
   const allowed = new Set<string>();
   const visit = (v: unknown): void => {
@@ -26,21 +28,34 @@ export function allowedNumbers(stats: ReportStats): Set<string> {
     else if (Array.isArray(v)) v.forEach(visit);
     else if (v && typeof v === "object") Object.values(v).forEach(visit);
   };
-  visit(stats);
+  const { rateZecNgn: _rate, ...rest } = stats;
+  visit(rest);
   return allowed;
 }
 
-/** Numbers of 3+ digits in `text` that do not appear in the stats (Section 12 validation). */
+/**
+ * Numbers in `text` that do not appear in the stats. Section 12 only asks for 3+ digit numbers, but then "47 families"
+ * passes, so every number counts, whatever its length (audit M2, D-034).
+ */
 export function unexpectedNumbers(text: string, stats: ReportStats): string[] {
   const allowed = allowedNumbers(stats);
-  return (text.match(NUMBER) ?? []).map(normalize).filter((n) => digitCount(n) >= 3 && !allowed.has(n));
+  return (text.match(NUMBER) ?? []).map(normalize).filter((n) => !allowed.has(n));
 }
+
+/**
+ * Figures that cannot be checked against the stats: percentages, scale words ("₦3 million", "₦1.5m") and numbers
+ * above ten written as words ("forty-seven", "hundreds of"). Small number words (one to ten) are too common in plain
+ * prose to reject, so the organizer's review before publishing stays the last check.
+ */
+const UNCHECKABLE_FIGURE =
+  /%|\bper\s?cent\b|\b(?:thousand|million|billion|trillion)s?\b|\d\s?(?:k|m|bn)\b|\b(?:eleven|twelve|(?:thir|four|fif|six|seven|eigh|nine)teen|(?:twen|thir|for|fif|six|seven|eigh|nine)ty|hundreds?|dozens?)\b/i;
 
 const JARGON = /\b(ZEC|zatoshis?|blockchain|crypto(currency)?|shielded|wallet)\b/i;
 
 export function validateReport(text: string, stats: ReportStats): { ok: true } | { ok: false; reason: string } {
   if (!text.trim()) return { ok: false, reason: "empty" };
   if (unexpectedNumbers(text, stats).length > 0) return { ok: false, reason: "unexpected_number" };
+  if (UNCHECKABLE_FIGURE.test(text)) return { ok: false, reason: "uncheckable_figure" };
   if (JARGON.test(text)) return { ok: false, reason: "jargon" };
   return { ok: true };
 }

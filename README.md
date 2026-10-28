@@ -65,7 +65,7 @@ npm run typecheck && npm test && npm run build
 
 ### Optional: AI-written updates
 
-Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number not in the totals or any crypto jargon. Without a key, the template is used everywhere.
+Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number that is not in those totals (whatever its length), a figure that can't be checked against them (a percentage, "₦3 million"-style amounts, or numbers above ten written as words), or any crypto jargon. A program can't catch everything: small numbers written as words, or a made-up description of a recipient, would get through. So every report is a draft until the organizer reads it and clicks Publish. Without a key, the template is used everywhere.
 
 ## Testnet mode (verified end to end)
 
@@ -116,7 +116,8 @@ docker run -p 8787:8787 -v asiri-data:/app/data --env-file .env asiri
 ```
 
 - **Mount a persistent volume at `/app/data`.** It holds the SQLite database and the treasury wallet. Without it, the wallet is lost on redeploy.
-- The image runs with `NODE_ENV=production`. Boot then refuses the default `ADMIN_PASSWORD`, and session cookies are `Secure`. Put it behind HTTPS (any host with TLS termination works, such as Fly.io, Railway, Render or a VPS with Caddy) and set `PUBLIC_WEB_URL` to the public HTTPS URL.
+- The image runs with `NODE_ENV=production`. Boot then refuses the default `ADMIN_PASSWORD` and the example `SESSION_SECRET` (it is public, so anyone could sign an admin cookie with it). Generate a new secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Session cookies are `Secure`. Put it behind HTTPS (any host with TLS termination works, such as Fly.io, Railway, Render or a VPS with Caddy) and set `PUBLIC_WEB_URL` to the public HTTPS URL. Over plain HTTP, organizer login answers `https_required`, and the login page says so.
+- To try the image on your own machine over `http://localhost`, add `-e NODE_ENV=development` to `docker run`, so login works without HTTPS.
 - The Dockerfile has not been built on the development machine, which has no Docker. The Rust stage follows zingolib's documented build steps, and the Node stage runs the same commands as above.
 
 ## Architecture
@@ -201,7 +202,7 @@ It runs these calls (shown here by hand, with `$B=http://localhost:8787/api`):
 curl -s $B/health
 curl -s -c jar.txt -H 'Content-Type: application/json' \
   -d '{"email":"organizer@example.com","password":"change-me-now"}' $B/auth/login
-curl -s -H 'Content-Type: application/json' -d '{"amountZat":200000000}' $B/dev/mock-donate   # fake 2 ZEC donation
+curl -s -b jar.txt -H 'Content-Type: application/json' -d '{"amountZat":200000000}' $B/dev/mock-donate   # fake 2 ZEC donation (organizer only)
 curl -s -b jar.txt -X POST $B/admin/sync                                                     # import it
 curl -s -b jar.txt -H 'Content-Type: application/json' \
   -d '{"amountNgn":50000,"category":"medical"}' $B/admin/payouts        # -> { link, pin, whatsappUrl, ... }

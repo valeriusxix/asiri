@@ -32,7 +32,7 @@ export default function Login() {
                 navigate("/admin", { replace: true });
               } catch (err) {
                 const code = err instanceof ApiError ? err.code : "";
-                setError(code === "invalid_credentials" ? t.badLogin : code === "rate_limited" ? t.rateLimited : code === "network_error" ? common.offline : common.error);
+                setError(loginError(code));
               } finally {
                 setBusy(false);
               }
@@ -67,4 +67,20 @@ export default function Login() {
       </div>
     </div>
   );
+}
+
+/** The message for a failed login, by API error code. */
+export function loginError(code: string): string {
+  switch (code) {
+    case "invalid_credentials":
+      return t.badLogin;
+    case "rate_limited":
+      return t.rateLimited;
+    case "https_required":
+      return t.httpsRequired;
+    case "network_error":
+      return common.offline;
+    default:
+      return common.error;
+  }
 }

@@ -14,7 +14,7 @@
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "start": "npm run start -w apps/api",
     "typecheck": "npm run typecheck -w apps/api && npm run typecheck -w apps/web",
-    "test": "npm run test -w apps/api && npm run check:copy",
+    "test": "npm run test -w apps/api && npm run test -w apps/web && npm run check:copy",
     "check:copy": "node scripts/check-copy.mjs",
     "seed:demo": "npm run seed:demo -w apps/api --"
   },

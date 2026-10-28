@@ -6,6 +6,7 @@ import { Alert, Button, ButtonLink, Card, CopyBox, DemoBadge, Field, Icon, Spinn
 import { common, donate as t } from "../copy";
 import { formatNgn } from "../format";
 import { useAsync } from "../hooks";
+import type { Fund } from "../types";
 
 type Tab = "zcash" | "demo";
 
@@ -50,28 +51,40 @@ export default function Donate() {
             </div>
           )}
 
-          {tab === "zcash" && (
-            <Card className="text-center">
-              <p className="text-sm font-semibold text-black/60">{t.scan}</p>
-              <div className="mt-4 flex justify-center">
-                <QR value={fund.data.paymentUri} title={t.scan} />
-              </div>
-              <p className="mx-auto mt-5 max-w-sm text-[15px] font-medium text-ink">
-                <Icon name="shield" className="mr-1.5 inline size-5 align-[-4px] text-ok" />
-                {t.privateLine}
-              </p>
-              <CopyBox className="mt-5 text-left" label={t.addressLabel} value={fund.data.receiveAddress} />
-              <a href={fund.data.paymentUri} className={buttonClass("dark", "lg", "mt-4 w-full")}>
-                {t.openWallet}
-              </a>
-              {fund.data.network === "testnet" && <p className="mt-3 text-sm text-black/50">{t.testnetNote}</p>}
-            </Card>
-          )}
+          {tab === "zcash" && <ZcashCard fund={fund.data} />}
 
           {tab === "demo" && demoMode && <DemoDonation />}
         </>
       )}
     </PublicLayout>
+  );
+}
+
+/** In mock mode the address is a placeholder that no wallet can pay, so it is labelled Demo (audit H2). */
+export function ZcashCard({ fund }: { fund: Fund }) {
+  const mock = fund.mode === "mock";
+  return (
+    <Card className="text-center">
+      {mock && (
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-left text-sm text-amber-950 ring-1 ring-inset ring-amber-200">
+          <DemoBadge className="mt-0.5 shrink-0" />
+          <p>{t.mockNote}</p>
+        </div>
+      )}
+      <p className="text-sm font-semibold text-black/60">{t.scan}</p>
+      <div className="mt-4 flex justify-center">
+        <QR value={fund.paymentUri} title={t.scan} />
+      </div>
+      <p className="mx-auto mt-5 max-w-sm text-[15px] font-medium text-ink">
+        <Icon name="shield" className="mr-1.5 inline size-5 align-[-4px] text-ok" />
+        {t.privateLine}
+      </p>
+      <CopyBox className="mt-5 text-left" label={t.addressLabel} value={fund.receiveAddress} />
+      <a href={fund.paymentUri} className={buttonClass("dark", "lg", "mt-4 w-full")}>
+        {t.openWallet}
+      </a>
+      {fund.network === "testnet" && !mock && <p className="mt-3 text-sm text-black/50">{t.testnetNote}</p>}
+    </Card>
   );
 }
 

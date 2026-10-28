@@ -15,6 +15,16 @@ const int = (min: number, max: number, def: number) => z.coerce.number().int().m
 const bool = (def: boolean) => z.preprocess(blankToUndefined, z.stringbool().default(def));
 
 /** Resolve a relative path against the repo root (see docs/DECISIONS.md D-008). */
+/**
+ * The `.env.example` secret is public (it is in git), so anyone could sign an admin session cookie with it.
+ * Production refuses it, and anything else that is obviously not random.
+ */
+export function isPlaceholderSecret(secret: string): boolean {
+  return /replace-with|change-me|example/i.test(secret) || new Set(secret).size < 10;
+}
+
+const GENERATE_SECRET = `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`;
+
 const rootPath = (def: string) =>
   z
     .string()
@@ -65,6 +75,13 @@ export const EnvSchema = z
     if (env.NODE_ENV === "production" && env.ADMIN_PASSWORD === "change-me-now") {
       ctx.addIssue({ code: "custom", path: ["ADMIN_PASSWORD"], message: "ADMIN_PASSWORD must be changed from the default in production" });
     }
+    if (env.NODE_ENV === "production" && isPlaceholderSecret(env.SESSION_SECRET)) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["SESSION_SECRET"],
+        message: `SESSION_SECRET is the public example value (or not random) and must be replaced in production. Generate one: ${GENERATE_SECRET}`,
+      });
+    }
   });
 
 export type Env = z.output<typeof EnvSchema>;
@@ -77,6 +94,18 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
     throw new Error(`Invalid environment configuration:\n${lines.join("\n")}\nCopy .env.example to .env and fix the values above.`);
   }
   return result.data;
+}
+
+/**
+ * Public defaults from `.env.example` that are still in use (production refuses them at boot). Fine on localhost,
+ * but anyone who can reach the server, such as everyone on the venue Wi-Fi during a demo, could log in as the
+ * organizer (audit H4). Messages never include the values.
+ */
+export function insecureDefaults(env: Env): string[] {
+  const warnings: string[] = [];
+  if (env.ADMIN_PASSWORD === "change-me-now") warnings.push("ADMIN_PASSWORD is the public default from .env.example");
+  if (isPlaceholderSecret(env.SESSION_SECRET)) warnings.push("SESSION_SECRET is the public example value, so admin cookies can be forged");
+  return warnings;
 }
 
 /** Load `.env` from the repo root (falls back to the cwd). Existing process env wins. */

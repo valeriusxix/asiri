@@ -28,6 +28,9 @@ export function authRoutes(ctx: AppContext, loginLimiter: RequestHandler): Route
   const r = Router();
 
   r.post("/login", loginLimiter, (req, res) => {
+    // In production the session cookie is Secure, so over plain HTTP it would silently not be set and login would
+    // "succeed" without logging in (audit M3). Behind a TLS proxy, `trust proxy` makes req.secure honest.
+    if (env.NODE_ENV === "production" && !req.secure) throw new HttpError(400, "https_required");
     const body = parseBody(LoginBody, req.body);
     // Both comparisons always run (no short-circuit) and are constant-time on sha256 digests.
     const emailOk = safeEqualString(body.email.toLowerCase(), env.ADMIN_EMAIL.toLowerCase());

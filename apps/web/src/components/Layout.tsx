@@ -15,18 +15,26 @@ export function Logo({ light }: { light?: boolean }) {
   );
 }
 
-/** Small "TESTNET" pill whenever the API runs on testnet (Agent.md 11.1). */
+/**
+ * Small "TESTNET" pill whenever the API runs on testnet (Agent.md 11.1). In mock mode no network is used at all,
+ * so it reads "DEMO" instead (audit H2, D-031).
+ */
 export function NetworkPill({ dark }: { dark?: boolean }) {
   const health = useHealth();
-  if (health?.network !== "testnet") return null;
+  return <NetworkPillView network={health?.network} mode={health?.mode} dark={dark} />;
+}
+
+export function NetworkPillView({ network, mode, dark }: { network?: string; mode?: string; dark?: boolean }) {
+  const mock = mode === "mock";
+  if (!mock && network !== "testnet") return null;
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-[11px] font-bold tracking-widest ring-1 ring-inset ${
         dark ? "bg-gold/15 text-gold ring-gold/40" : "bg-amber-50 text-amber-800 ring-amber-300"
       }`}
-      title="This demo runs on the Zcash test network. No real money."
+      title={mock ? common.demoPillTitle : common.testnetTitle}
     >
-      {common.testnet}
+      {mock ? common.demoPill : common.testnet}
     </span>
   );
 }

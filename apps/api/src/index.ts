@@ -1,6 +1,6 @@
 import { createApp, getServices } from "./app.js";
 import { openDb } from "./db/db.js";
-import { loadDotenvFile, parseEnv, type Env } from "./env.js";
+import { insecureDefaults, loadDotenvFile, parseEnv, type Env } from "./env.js";
 import { createLogger } from "./lib/logger.js";
 import type { ZcashAdapter } from "./zcash/adapter.js";
 import { MockAdapter } from "./zcash/mock.js";
@@ -16,6 +16,9 @@ try {
 }
 
 const logger = createLogger();
+for (const warning of insecureDefaults(env)) {
+  logger.warn(`${warning}. Fine on localhost, but anyone who can reach this server could log in as the organizer. Change it before serving on a network.`);
+}
 const db = openDb(env.DATABASE_PATH);
 
 async function createAdapter(): Promise<ZcashAdapter> {

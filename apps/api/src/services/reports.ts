@@ -13,12 +13,17 @@ export interface ReportStats {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
+  /** Lets the text say "the last 30 days" now that every number is checked (audit M2). */
+  periodDays: number;
   rateZecNgn: number;
   donationsReceived: string;
   donationsCount: number;
   simulatedDonations: string;
   paidOut: string;
   paymentsCount: number;
+  /** Part of paidOut / paymentsCount: demo cash-outs, where no real bank transfer happened (audit M1). */
+  demoCashouts: string;
+  demoCashoutsCount: number;
   waitingToBeClaimed: string;
   byCategory: { category: string; payments: number; amount: string }[];
 }
@@ -58,12 +63,15 @@ export function buildStats(ctx: AppContext, start: Date, end: Date, rateZecNgn: 
     periodStart: start.toISOString().slice(0, 10),
     periodEnd: end.toISOString().slice(0, 10),
     periodLabel: `${dateLabel(start)} to ${dateLabel(end)}`,
+    periodDays: Math.round((end.getTime() - start.getTime()) / DAY_MS),
     rateZecNgn,
     donationsReceived: ngn(t.receivedZat),
     donationsCount: t.donationsCount,
     simulatedDonations: ngn(t.simulatedZat),
     paidOut: ngn(t.paidOutZat),
     paymentsCount: t.payoutsCount,
+    demoCashouts: ngn(t.demoCashoutZat),
+    demoCashoutsCount: t.demoCashoutCount,
     waitingToBeClaimed: ngn(outstandingZat(ctx.db)),
     byCategory: t.byCategory.map((c) => ({ category: c.category, payments: c.count, amount: ngn(c.amountZat) })),
   };
@@ -85,6 +93,11 @@ export function templateReport(s: ReportStats): string {
     parts.push(
       `We sent ${s.paidOut} in ${plural(s.paymentsCount, "payment", "payments")} to people who needed help: ${cats}.`,
     );
+    if (s.demoCashoutsCount > 0) {
+      parts.push(
+        `This includes ${s.demoCashouts} in ${plural(s.demoCashoutsCount, "demo cash-out", "demo cash-outs")}, where no real bank transfer happened.`,
+      );
+    }
   } else {
     parts.push("No payments were collected in this period.");
   }

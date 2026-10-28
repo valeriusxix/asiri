@@ -24,6 +24,7 @@ export interface Fund {
   ufvk: string;
   paymentUri: string;
   demoMode: boolean;
+  mode: "mock" | "zingo";
 }
 
 export interface Price {
@@ -38,12 +39,17 @@ export interface ReportStats {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
+  /** Absent on reports written before audit M2. */
+  periodDays?: number;
   rateZecNgn: number;
   donationsReceived: string;
   donationsCount: number;
   simulatedDonations: string;
   paidOut: string;
   paymentsCount: number;
+  /** Absent on reports written before audit M1. */
+  demoCashouts?: string;
+  demoCashoutsCount?: number;
   waitingToBeClaimed: string;
   byCategory: { category: string; payments: number; amount: string }[];
 }
@@ -51,6 +57,7 @@ export interface ReportStats {
 export interface Transparency {
   fundName: string;
   network: Network;
+  mode: "mock" | "zingo";
   currency: { zecNgn: number; source: string };
   totals: {
     receivedZat: number;
@@ -58,6 +65,9 @@ export interface Transparency {
     paidOutZat: number;
     outstandingZat: number;
     payoutsCount: number;
+    /** Part of paidOutZat / payoutsCount: demo cash-outs, where no money moved. */
+    demoCashoutZat: number;
+    demoCashoutCount: number;
   };
   byCategory: { category: string; count: number; amountZat: number }[];
   weekly: { weekStart: string; receivedZat: number; paidOutZat: number }[];

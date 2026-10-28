@@ -28,6 +28,22 @@ describe("auth", () => {
     expect((await request(h.app).get("/api/auth/me")).status).toBe(401);
   });
 
+  it("in production, login over plain HTTP says https_required instead of silently setting no cookie (audit M3)", async () => {
+    const h = setup({ NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123", SESSION_SECRET: "9f2c4e7a1b3d5f8e0a6c2b4d7e9f1a3c5b8d0e2f4a6c8e1b3d5f7a9c2e4b6d8f" });
+    const credentials = { email: h.env.ADMIN_EMAIL, password: h.env.ADMIN_PASSWORD };
+
+    const plain = await request(h.app).post("/api/auth/login").send(credentials);
+    expect(plain.status).toBe(400);
+    expect(plain.body).toEqual({ error: "https_required" });
+    expect(plain.headers["set-cookie"]).toBeUndefined();
+
+    // Behind a TLS-terminating proxy (trust proxy = 1 in production), the same login works and the cookie is Secure.
+    const tls = await request(h.app).post("/api/auth/login").set("X-Forwarded-Proto", "https").send(credentials);
+    expect(tls.status).toBe(200);
+    const cookies = ([] as string[]).concat(tls.headers["set-cookie"] ?? []);
+    expect(cookies.some((c) => c.startsWith("asiri_session=") && /;\s*secure/i.test(c) && /;\s*httponly/i.test(c))).toBe(true);
+  });
+
   it("logs in with the env credentials, sets an httpOnly cookie, and logs out", async () => {
     const h = setup();
     const agent = request.agent(h.app);
@@ -87,6 +103,12 @@ describe("public routes", () => {
     expect(res.body.demoMode).toBe(true);
   });
 
+  it("tells the web app when the address, totals and viewing key are mock placeholders (audit H2)", async () => {
+    const h = setup();
+    expect((await request(h.app).get("/api/fund")).body.mode).toBe("mock");
+    expect((await request(h.app).get("/api/transparency")).body.mode).toBe("mock");
+  });
+
   it("GET /api/price returns the fixed rate", async () => {
     const h = setup();
     const res = await request(h.app).get("/api/price");
@@ -96,6 +118,19 @@ describe("public routes", () => {
   it("simulated donations are 404 when DEMO_MODE=false", async () => {
     const h = setup({ DEMO_MODE: "false" });
     expect((await request(h.app).post("/api/donations/simulate").send({ amountNgn: 1000 })).status).toBe(404);
+  });
+
+  it("mock-donate needs the organizer session and caps the amount (audit H3)", async () => {
+    const h = setup();
+    const anon = await request(h.app).post("/api/dev/mock-donate").send({ amountZat: 2_100_000_000_000_000, memo: "anyone can write this" });
+    expect(anon.status).toBe(401);
+    expect(anon.body).toEqual({ error: "unauthorized" });
+    await h.jobs.runOnce();
+    expect((await request(h.app).get("/api/transparency")).body.totals.receivedZat).toBe(0);
+
+    const agent = await h.admin();
+    expect((await agent.post("/api/dev/mock-donate").send({ amountZat: 100 * ONE_ZEC + 1 })).status).toBe(400);
+    expect((await agent.post("/api/dev/mock-donate").send({ amountZat: 100 * ONE_ZEC })).status).toBe(201);
   });
 
   it("dev routes are 404 outside mock mode", async () => {
@@ -136,6 +171,8 @@ describe("transparency", () => {
       paidOutZat: 50_000_000,
       outstandingZat: 10_000_000,
       payoutsCount: 1,
+      demoCashoutZat: 0,
+      demoCashoutCount: 0,
     });
     expect(res.body.byCategory).toEqual([{ category: "medical", count: 1, amountZat: 50_000_000 }]);
     expect(res.body.weekly).toHaveLength(8);
@@ -151,9 +188,37 @@ describe("transparency", () => {
     expect(text).not.toContain(TESTNET_ADDRESS);
   });
 
+  it("breaks out demo cash-outs, where no money moved, from real payments (audit M1)", async () => {
+    const h = setup();
+    await h.fund(3 * ONE_ZEC);
+    const claim = async (p: { id: string; secret: string; pin: string }, body: Record<string, string>) => {
+      const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
+      await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, ...body }).expect(200);
+    };
+    await claim(await createPayout(h, { amountNgn: 30_000, category: "medical" }), { method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" });
+    await claim(await createPayout(h, { amountNgn: 6_000, category: "food" }), { method: "zcash_address", zcashAddress: TESTNET_ADDRESS });
+
+    const { totals } = (await request(h.app).get("/api/transparency")).body;
+    expect(totals).toMatchObject({ paidOutZat: 60_000_000, payoutsCount: 2, demoCashoutZat: 50_000_000, demoCashoutCount: 1 });
+
+    const agent = await h.admin();
+    const report = (await agent.post("/api/admin/reports/generate").send({ periodDays: 7 })).body;
+    expect(report.stats).toMatchObject({ paidOut: "₦36,000", demoCashouts: "₦30,000", demoCashoutsCount: 1 });
+    expect(report.body).toContain("This includes ₦30,000 in 1 demo cash-out, where no real bank transfer happened.");
+  });
+
+  it("a cash-out sent to OFFRAMP_ZCASH_ADDRESS moved real money, so it is not a demo cash-out", async () => {
+    const h = setup({ OFFRAMP_ZCASH_ADDRESS: TESTNET_ADDRESS });
+    await h.fund(3 * ONE_ZEC);
+    const p = await createPayout(h, { amountNgn: 30_000, category: "medical" });
+    const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
+    await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" }).expect(200);
+    expect((await request(h.app).get("/api/transparency")).body.totals).toMatchObject({ payoutsCount: 1, demoCashoutCount: 0, demoCashoutZat: 0 });
+  });
+
   it("admin donations list includes memos; transparency never does", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: ONE_ZEC, memo: "for the clinic" }).expect(201);
+    await h.mockDonate(ONE_ZEC, "for the clinic");
     await h.jobs.runOnce();
     await h.jobs.runOnce(); // idempotent import
     const agent = await h.admin();
@@ -188,7 +253,7 @@ describe("reports (template)", () => {
 describe("admin sync", () => {
   it("POST /api/admin/sync imports mock donations and returns the overview", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: ONE_ZEC }).expect(201);
+    await h.mockDonate(ONE_ZEC);
     const agent = await h.admin();
     const res = await agent.post("/api/admin/sync");
     expect(res.status).toBe(200);

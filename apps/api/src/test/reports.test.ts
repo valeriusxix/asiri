@@ -12,12 +12,15 @@ const STATS: ReportStats = {
   periodStart: "2026-10-13",
   periodEnd: "2026-10-20",
   periodLabel: "13 October 2026 to 20 October 2026",
+  periodDays: 7,
   rateZecNgn: 60000,
   donationsReceived: "₦1,250,000",
   donationsCount: 14,
   simulatedDonations: "₦15,000",
   paidOut: "₦480,000",
   paymentsCount: 9,
+  demoCashouts: "₦45,000",
+  demoCashoutsCount: 2,
   waitingToBeClaimed: "₦70,000",
   byCategory: [
     { category: "medical", payments: 5, amount: "₦300,000" },
@@ -58,9 +61,10 @@ const envWith = (extra: Record<string, string> = {}) => parseEnv({ ...TEST_ENV, 
 describe("report number validation", () => {
   it("collects every number in the stats, comma-free", () => {
     const allowed = allowedNumbers(STATS);
-    for (const n of ["1250000", "480000", "300000", "70000", "15000", "60000", "14", "9", "2026", "13", "20"]) {
+    for (const n of ["1250000", "480000", "300000", "70000", "15000", "14", "9", "2026", "13", "20"]) {
       expect(allowed.has(n), n).toBe(true);
     }
+    expect(allowed.has("60000"), "the ZEC rate is never allowed").toBe(false);
   });
 
   it("accepts text that only uses the given numbers", () => {
@@ -68,11 +72,37 @@ describe("report number validation", () => {
     expect(validateReport(GOOD, STATS)).toEqual({ ok: true });
   });
 
-  it("rejects invented 3+ digit numbers but tolerates small ones", () => {
-    expect(unexpectedNumbers("We helped 37 people and paid ₦500,000.", STATS)).toEqual(["500000"]);
+  it("rejects every invented number, small ones included (audit M2)", () => {
+    expect(unexpectedNumbers("We helped 37 people and paid ₦500,000.", STATS)).toEqual(["37", "500000"]);
     expect(unexpectedNumbers("Around 2,000 families.", STATS)).toEqual(["2000"]);
-    expect(unexpectedNumbers("We made 12 payments.", STATS)).toEqual([]);
+    expect(unexpectedNumbers("We made 12 payments.", STATS)).toEqual(["12"]);
     expect(validateReport("We raised ₦9,999,999 this week.", STATS)).toEqual({ ok: false, reason: "unexpected_number" });
+    // The inventions the audit found getting through the 3+ digit rule:
+    expect(validateReport(`${GOOD} Your gifts reached 47 families.`, STATS)).toEqual({ ok: false, reason: "unexpected_number" });
+  });
+
+  it("rejects figures it cannot check: percentages, scale words and large number words (audit M2)", () => {
+    // Numbers that ARE in the stats (9, 14), so only the new check can reject these.
+    for (const extra of [
+      "Next month we hope to raise ₦9 million.",
+      "About ₦9m is still needed.",
+      "14% of donations went straight to people.",
+      "Nine per cent went to transport.",
+      "Forty-seven people were helped.",
+      "Hundreds of families were reached.",
+      "Over a dozen clinics took part.",
+    ]) {
+      expect(validateReport(`${GOOD} ${extra}`, STATS), extra).toEqual({ ok: false, reason: "uncheckable_figure" });
+    }
+    // The exact strings from the audit are rejected too, by whichever check sees them first.
+    for (const extra of ["Next month we hope to raise ₦3 million.", "About ₦1.5m is still needed.", "85% of donations went straight to people."]) {
+      expect(validateReport(`${GOOD} ${extra}`, STATS).ok, extra).toBe(false);
+    }
+  });
+
+  it("still accepts plain prose that only uses the given numbers", () => {
+    expect(validateReport(`${GOOD} That is 9 payments in the last 7 days, and every one of them mattered.`, STATS)).toEqual({ ok: true });
+    expect(validateReport(`${GOOD} Thank you to all 14 of you, and to everyone who shared our link more than once.`, STATS)).toEqual({ ok: true });
   });
 
   it("rejects empty text and crypto jargon", () => {
@@ -120,6 +150,8 @@ describe("Claude report writer", () => {
 
   it.each([
     ["an invented number", async () => message("We raised ₦7,777,777 for 14 donors.")],
+    ["an invented small number", async () => message(`${GOOD} Your gifts reached 47 families.`)],
+    ["an invented amount in words", async () => message(`${GOOD} Next month we hope to raise ₦3 million.`)],
     ["a refusal", async () => message("", "refusal")],
     ["a truncated answer", async () => message("This week donors gave", "max_tokens")],
     ["an empty answer", async () => message("")],
@@ -134,7 +166,7 @@ describe("Claude report writer", () => {
 describe("report stats privacy", () => {
   it("never include payout ids, internal notes, donor memos or addresses", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: 300_000_000, memo: "for Mama Ngozi" }).expect(201);
+    await h.mockDonate(300_000_000, "for Mama Ngozi");
     await h.jobs.runOnce();
     const p = await createPayout(h, { amountNgn: 30_000, category: "medical", internalNote: "Clinic visit, week 2" });
     const t = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;

@@ -39,6 +39,8 @@ export interface ReportStats {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
+  /** Absent on reports written before audit M2. */
+  periodDays?: number;
   rateZecNgn: number;
   donationsReceived: string;
   donationsCount: number;

@@ -65,7 +65,7 @@ npm run typecheck && npm test && npm run build
 
 ### Optional: AI-written updates
 
-Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number not in the totals or any crypto jargon. Without a key, the template is used everywhere.
+Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number that is not in those totals (whatever its length), a figure that can't be checked against them (a percentage, "₦3 million"-style amounts, or numbers above ten written as words), or any crypto jargon. A program can't catch everything: small numbers written as words, or a made-up description of a recipient, would get through. So every report is a draft until the organizer reads it and clicks Publish. Without a key, the template is used everywhere.
 
 ## Testnet mode (verified end to end)
 

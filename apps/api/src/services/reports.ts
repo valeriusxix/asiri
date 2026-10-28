@@ -13,6 +13,8 @@ export interface ReportStats {
   periodStart: string;
   periodEnd: string;
   periodLabel: string;
+  /** Lets the text say "the last 30 days" now that every number is checked (audit M2). */
+  periodDays: number;
   rateZecNgn: number;
   donationsReceived: string;
   donationsCount: number;
@@ -61,6 +63,7 @@ export function buildStats(ctx: AppContext, start: Date, end: Date, rateZecNgn: 
     periodStart: start.toISOString().slice(0, 10),
     periodEnd: end.toISOString().slice(0, 10),
     periodLabel: `${dateLabel(start)} to ${dateLabel(end)}`,
+    periodDays: Math.round((end.getTime() - start.getTime()) / DAY_MS),
     rateZecNgn,
     donationsReceived: ngn(t.receivedZat),
     donationsCount: t.donationsCount,

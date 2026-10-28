@@ -132,7 +132,7 @@ docker run -p 8787:8787 -v asiri-data:/app/data --env-file .env asiri
 
 ## Deploy on Render
 
-`render.yaml` deploys the public demo as one free web service: mock treasury, `DEMO_MODE` on, live rates, seeded demo data. In the Render Dashboard, click **New > Blueprint**, pick this repo, and enter `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Claim links use the service's `onrender.com` URL. On the free plan the service sleeps after 15 minutes idle and reseeds on every restart. [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) has the steps, the checks after a deploy, the fallback prices to set, and how to keep data on a paid plan with a disk.
+`render.yaml` deploys the public demo as one free web service: mock treasury, `DEMO_MODE` on, live rates, seeded demo data. In the Render Dashboard, click **New > Blueprint**, pick this repo, and enter `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Claim links use the service's `onrender.com` URL. On the free plan the service sleeps after 15 minutes idle and reseeds on every restart. [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) has the steps, the checks after a deploy, the fallback prices to set, and how to keep data on a paid plan with a disk. `render.testnet.yaml` is a second Blueprint, with a real testnet treasury on a paid plan with a disk. It is written but not yet built on Render.
 
 ## Architecture
 

@@ -1,0 +1,59 @@
+# Render Blueprint for Asiri with a real Zcash TESTNET treasury (zingo-cli). Separate from render.yaml (the free demo).
+# In the Render Dashboard: New > Blueprint, pick this repo, set Blueprint Path to render.testnet.yaml, then enter
+# ADMIN_EMAIL and ADMIN_PASSWORD. Read docs/DEPLOY_RENDER.md ("Testnet treasury") first: this setup has not been
+# built on Render yet.
+services:
+  - type: web
+    name: asiri-testnet
+    # The full image from docker/Dockerfile: Node app plus zingo-cli and nym-proxy compiled from zingolib (Rust).
+    # Render builds the Dockerfile's last stage, which is the one with zingo-cli.
+    runtime: docker
+    dockerfilePath: ./docker/Dockerfile
+    dockerContext: .
+    # Region can't be changed after creation. Others: oregon, ohio, virginia, singapore.
+    region: frankfurt
+    # Paid plan: the treasury wallet needs the persistent disk below, and free services can't have one.
+    # The memory zingo-cli needs on Render hasn't been measured; 0.5c-512mb may be enough.
+    plan: 1c-2g
+    branch: main
+    autoDeployTrigger: commit
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # No simulated cash-out or card donations: recipients keep the payout or send it to their own Zcash wallet.
+      - key: DEMO_MODE
+        value: "false"
+      - key: ZCASH_MODE
+        value: zingo
+      - key: ZCASH_NETWORK
+        value: testnet
+      # Verified testnet lightwalletd server (docs/ZINGO_NOTES.md).
+      - key: LIGHTWALLETD_URL
+        value: https://testnet.zec.rocks:443
+      # Each testnet sync takes 20 to 120 s.
+      - key: SYNC_INTERVAL_SECONDS
+        value: "300"
+      - key: FUND_NAME
+        value: Community Relief Fund
+      - key: FUND_CURRENCY
+        value: USD
+      - key: PRICE_SOURCE
+        value: coingecko
+      # Render passes env vars to the Docker build as build args. Fewer parallel Rust jobs use less build memory.
+      - key: CARGO_BUILD_JOBS
+        value: "2"
+      # PUBLIC_WEB_URL is left out: claim links use RENDER_EXTERNAL_URL. Set it in the Dashboard for a custom domain.
+      # DATABASE_PATH, TREASURY_DATA_DIR and ZINGO_CLI_PATH come from the Dockerfile (/app/data/..., /usr/local/bin).
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+    # The SQLite database and the treasury wallet. Without this disk, the wallet (and any TAZ in it) is lost on
+    # every deploy. With a disk, deploys stop the old instance first, so there are a few seconds of downtime.
+    disk:
+      name: asiri-data
+      mountPath: /app/data
+      sizeGB: 1

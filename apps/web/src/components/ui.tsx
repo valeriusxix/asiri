@@ -6,12 +6,12 @@ import { copyText } from "../hooks";
 type Variant = "primary" | "dark" | "secondary" | "danger" | "ghost" | "success";
 
 const VARIANTS: Record<Variant, string> = {
-  primary: "bg-gold text-ink hover:bg-[#ffc94a] active:bg-gold-dark focus-visible:outline-gold",
-  dark: "bg-ink text-white hover:bg-ink-soft focus-visible:outline-ink",
-  secondary: "bg-white text-ink ring-1 ring-inset ring-black/15 hover:bg-black/[0.03] focus-visible:outline-ink",
-  danger: "bg-white text-bad ring-1 ring-inset ring-bad/40 hover:bg-bad/5 focus-visible:outline-bad",
-  ghost: "text-ink/70 hover:text-ink hover:bg-black/5 focus-visible:outline-ink",
-  success: "bg-ok text-white hover:bg-[#15803d] focus-visible:outline-ok",
+  primary: "bg-brand-primary text-white hover:bg-brand-primary-hover active:bg-brand-primary-pressed focus-visible:outline-brand-primary",
+  dark: "bg-brand-ink text-white hover:bg-brand-ink-hover focus-visible:outline-brand-primary",
+  secondary: "bg-surface text-fg ring-1 ring-inset ring-border-strong hover:bg-surface-muted focus-visible:outline-brand-primary",
+  danger: "bg-surface text-error ring-1 ring-inset ring-error/40 hover:bg-error-tint focus-visible:outline-error",
+  ghost: "text-muted hover:text-fg hover:bg-surface-muted focus-visible:outline-brand-primary",
+  success: "bg-success text-white hover:bg-success-hover focus-visible:outline-success",
 };
 
 const SIZES = {
@@ -57,13 +57,13 @@ export function ButtonLink({
 }
 
 export function Card({ children, className = "", as: Tag = "section" }: { children: ReactNode; className?: string; as?: "section" | "div" | "article" }) {
-  return <Tag className={`rounded-2xl bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] ${className}`}>{children}</Tag>;
+  return <Tag className={`rounded-2xl bg-surface p-5 shadow-xs shadow-brand-ink/5 ring-1 ring-border ${className}`}>{children}</Tag>;
 }
 
 export function DemoBadge({ className = "" }: { className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold tracking-wide text-amber-900 ring-1 ring-inset ring-amber-300 ${className}`}
+      className={`inline-flex items-center rounded-full bg-warning-tint-strong px-2 py-0.5 text-xs font-bold tracking-wide text-warning-text ring-1 ring-inset ring-warning-border ${className}`}
     >
       {common.demo}
     </span>
@@ -102,9 +102,9 @@ export function CopyButton({ text, label = common.copy, className = "" }: { text
 export function CopyBox({ value, label, className = "" }: { value: string; label?: string; className?: string }) {
   return (
     <div className={className}>
-      {label && <div className="mb-1.5 text-sm font-medium text-black/60">{label}</div>}
-      <div className="flex items-start gap-2 rounded-xl bg-black/[0.04] p-3 ring-1 ring-inset ring-black/[0.06]">
-        <code className="min-w-0 flex-1 break-all font-mono text-[13px] leading-relaxed text-ink">{value}</code>
+      {label && <div className="mb-1.5 text-sm font-medium text-muted">{label}</div>}
+      <div className="flex items-start gap-2 rounded-xl bg-surface-muted p-3 ring-1 ring-inset ring-border">
+        <code className="min-w-0 flex-1 break-all font-mono text-[13px] leading-relaxed text-fg">{value}</code>
         <CopyButton text={value} />
       </div>
     </div>
@@ -113,10 +113,10 @@ export function CopyBox({ value, label, className = "" }: { value: string; label
 
 export function Alert({ tone = "error", children }: { tone?: "error" | "info" | "success" | "warning"; children: ReactNode }) {
   const tones = {
-    error: "bg-red-50 text-red-900 ring-red-200",
-    info: "bg-sky-50 text-sky-900 ring-sky-200",
-    success: "bg-green-50 text-green-900 ring-green-200",
-    warning: "bg-amber-50 text-amber-950 ring-amber-200",
+    error: "bg-error-tint text-error ring-error-border",
+    info: "bg-info-tint text-info-text ring-info-border",
+    success: "bg-success-tint text-success-text ring-success-border",
+    warning: "bg-warning-tint text-warning-text ring-warning-border",
   };
   return (
     <div role={tone === "error" ? "alert" : "status"} className={`rounded-xl p-3.5 text-[15px] leading-snug ring-1 ring-inset ${tones[tone]}`}>
@@ -128,21 +128,21 @@ export function Alert({ tone = "error", children }: { tone?: "error" | "info" | 
 export function Field({ label, help, error, htmlFor, children }: { label: string; help?: ReactNode; error?: string | null; htmlFor: string; children: ReactNode }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-semibold text-ink">
+      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-semibold text-fg">
         {label}
       </label>
       {children}
       {error ? (
-        <p className="mt-1.5 text-sm font-medium text-bad">{error}</p>
+        <p className="mt-1.5 text-sm font-medium text-error">{error}</p>
       ) : help ? (
-        <p className="mt-1.5 text-sm text-black/55">{help}</p>
+        <p className="mt-1.5 text-sm text-muted">{help}</p>
       ) : null}
     </div>
   );
 }
 
 export const inputClass =
-  "block w-full min-h-12 rounded-xl bg-white px-3.5 text-base text-ink ring-1 ring-inset ring-black/20 placeholder:text-black/35 focus:outline-none focus:ring-2 focus:ring-ink";
+  "block w-full min-h-12 rounded-xl bg-surface px-3.5 text-base text-fg ring-1 ring-inset ring-input placeholder:text-subtle focus:outline-none focus:ring-2 focus:ring-brand-primary";
 
 export function Icon({ name, className = "size-5" }: { name: "check" | "bank" | "clock" | "wallet" | "lock" | "alert" | "shield" | "arrow"; className?: string }) {
   const paths: Record<typeof name, ReactNode> = {

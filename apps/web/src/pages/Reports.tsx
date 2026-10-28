@@ -31,7 +31,7 @@ export default function Reports() {
       <div className="space-y-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t.reports}</h1>
-          <p className="mt-1 max-w-2xl text-black/60">{t.reportsSub}</p>
+          <p className="mt-1 max-w-2xl text-muted">{t.reportsSub}</p>
         </div>
 
         <Card className="flex flex-wrap items-end gap-3">
@@ -59,7 +59,7 @@ export default function Reports() {
         </Card>
 
         {error && <Alert>{error}</Alert>}
-        {reports.data?.length === 0 && <p className="text-black/55">{t.noReports}</p>}
+        {reports.data?.length === 0 && <p className="text-muted">{t.noReports}</p>}
         {reports.data?.map((r) => (
           <ReportCard key={r.id} r={r} busy={busy === r.id} onPublish={() => run(r.id, () => api.admin.publishReport(r.id))} />
         ))}
@@ -75,22 +75,22 @@ function ReportCard({ r, busy, onPublish }: { r: Report; busy: boolean; onPublis
         <h2 className="mr-auto font-bold">
           {t.reportPeriod(formatDate(r.periodStart), formatDate(r.periodEnd))}
         </h2>
-        <span className="rounded-full bg-black/[0.05] px-2 py-0.5 text-xs font-semibold text-black/60">{r.generator === "claude" ? t.byClaude : t.byTemplate}</span>
+        <span className="rounded-full bg-surface-muted px-2 py-0.5 text-xs font-semibold text-muted">{r.generator === "claude" ? t.byClaude : t.byTemplate}</span>
         {r.published ? (
-          <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-800 ring-1 ring-inset ring-green-200">
+          <span className="rounded-full bg-success-tint px-2 py-0.5 text-xs font-semibold text-success-text ring-1 ring-inset ring-success-border">
             {t.published} {r.publishedAt && formatDateTime(r.publishedAt)}
           </span>
         ) : (
           <>
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-inset ring-amber-200">{t.draft}</span>
-            <Button size="sm" variant="dark" onClick={onPublish} disabled={busy}>
+            <span className="rounded-full bg-warning-tint px-2 py-0.5 text-xs font-semibold text-warning-text ring-1 ring-inset ring-warning-border">{t.draft}</span>
+            <Button size="sm" onClick={onPublish} disabled={busy}>
               {busy ? <Spinner className="size-4" /> : t.publish}
             </Button>
           </>
         )}
       </div>
-      <p className="mt-3 whitespace-pre-line leading-relaxed text-black/80">{r.body}</p>
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 rounded-xl bg-black/[0.03] p-3 text-sm sm:grid-cols-4">
+      <p className="mt-3 whitespace-pre-line leading-relaxed text-fg/85">{r.body}</p>
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1 rounded-xl bg-surface-muted p-3 text-sm sm:grid-cols-4">
         <Stat label={t.reportStats.donations} value={`${r.stats.donationsReceived} (${r.stats.donationsCount})`} />
         <Stat label={t.reportStats.paidOut} value={`${r.stats.paidOut} (${r.stats.paymentsCount})`} />
         <Stat label={t.reportStats.waiting} value={r.stats.waitingToBeClaimed} />
@@ -103,7 +103,7 @@ function ReportCard({ r, busy, onPublish }: { r: Report; busy: boolean; onPublis
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-black/50">{label}</dt>
+      <dt className="text-subtle">{label}</dt>
       <dd className="font-semibold tabular-nums">{value}</dd>
     </div>
   );

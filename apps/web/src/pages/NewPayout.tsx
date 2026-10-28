@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { ApiError, api } from "../api";
 import { AdminLayout } from "../components/AdminLayout";
@@ -32,7 +32,7 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
 
   return (
     <div className="mx-auto max-w-xl">
-      <h1 className="mb-5 text-2xl font-bold tracking-tight">{t.newPayout}</h1>
+      <h1 className="mb-5 text-2xl font-bold tracking-tight text-fg sm:text-[1.75rem]">{t.newPayout}</h1>
       <Card>
         <form
           noValidate
@@ -119,7 +119,7 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
                   aria-checked={category === c}
                   onClick={() => setCategory(c)}
                   className={`min-h-11 rounded-xl px-2 text-sm font-semibold ring-1 ring-inset transition ${
-                    category === c ? "bg-ink text-white ring-ink" : "bg-white text-ink ring-black/15 hover:bg-black/[0.03]"
+                    category === c ? "bg-brand-primary text-white ring-brand-primary" : "bg-surface text-fg ring-border-strong hover:bg-surface-muted"
                   }`}
                 >
                   {categoryLabels[c]}
@@ -127,7 +127,7 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
               ))}
             </div>
           </Field>
-          <Field label={t.note} htmlFor="note" help={<span className="font-medium text-amber-800">{t.noteHint}</span>}>
+          <Field label={t.note} htmlFor="note" help={<span className="font-medium text-warning-text">{t.noteHint}</span>}>
             <input id="note" value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} className={inputClass} autoComplete="off" />
           </Field>
           <Field label={t.expiry} htmlFor="days">
@@ -157,50 +157,55 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
 
 function Created({ result, onAnother }: { result: CreatedPayout; onAnother: () => void }) {
   const path = new URL(result.link).pathname + new URL(result.link).hash;
+  // The form is long, so the page is usually scrolled down when this appears: bring the "only once" warning into view.
+  useEffect(() => window.scrollTo(0, 0), []);
   return (
     <div className="mx-auto max-w-xl space-y-4">
       <div className="flex items-center gap-3">
-        <span className="flex size-10 items-center justify-center rounded-full bg-ok text-white">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-success text-white">
           <Icon name="check" className="size-6" />
         </span>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">{t.createdTitle}</h1>
-          <p className="text-black/60">
-            {result.payout.amountDisplay} · {categoryLabels[result.payout.category]} · {result.payout.amountZecDisplay}
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-fg">{t.createdTitle}</h1>
+          <p className="text-muted">
+            <span className="font-semibold text-fg">{result.payout.amountDisplay}</span> · {categoryLabels[result.payout.category]} · {result.payout.amountZecDisplay}
           </p>
         </div>
       </div>
 
-      <div className="flex items-start gap-2 rounded-xl bg-red-50 p-3.5 font-semibold text-bad ring-1 ring-inset ring-red-200">
-        <Icon name="alert" className="mt-0.5 size-5 shrink-0" />
-        {t.onlyOnce}
-      </div>
-
-      <Card>
-        <p className="text-sm font-semibold text-black/55">{t.linkLabel}</p>
-        <p className="mt-1.5 break-all font-mono text-[15px] leading-relaxed text-ink">{result.link}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <CopyButton text={result.link} />
-          <a href={result.whatsappUrl} target="_blank" rel="noopener noreferrer" className={buttonClass("success", "sm")}>
-            {t.whatsapp}
-          </a>
-          <a href={result.smsUrl} className={buttonClass("secondary", "sm")}>
-            {t.sms}
-          </a>
+      {/* The one moment the organizer sees the link and PIN: the panel outranks everything else on the page. */}
+      <section className="overflow-hidden rounded-3xl bg-surface shadow-lg shadow-brand-primary/10 ring-2 ring-brand-primary">
+        <div className="flex items-start gap-2.5 bg-error-tint px-5 py-3.5 font-semibold text-error ring-1 ring-inset ring-error-border">
+          <Icon name="alert" className="mt-0.5 size-5 shrink-0" />
+          {t.onlyOnce}
         </div>
-      </Card>
 
-      <Card>
-        <p className="text-sm font-semibold text-black/55">{t.pinLabel}</p>
-        <p className="mt-1 font-mono text-5xl font-bold tracking-[0.2em] text-ink tabular-nums">{result.pin}</p>
-        <p className="mt-3 text-[15px] text-black/70">{t.pinInstruction}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <CopyButton text={result.pin} />
-          <a href={`sms:?body=${encodeURIComponent(t.pinSms(result.pin))}`} className={buttonClass("secondary", "sm")}>
-            {t.smsPin}
-          </a>
+        <div className="p-5">
+          <p className="text-sm font-semibold text-muted">{t.linkLabel}</p>
+          <p className="mt-1.5 break-all rounded-xl bg-surface-muted p-3 font-mono text-[15px] leading-relaxed text-fg">{result.link}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <CopyButton text={result.link} />
+            <a href={result.whatsappUrl} target="_blank" rel="noopener noreferrer" className={buttonClass("success", "sm")}>
+              {t.whatsapp}
+            </a>
+            <a href={result.smsUrl} className={buttonClass("secondary", "sm")}>
+              {t.sms}
+            </a>
+          </div>
         </div>
-      </Card>
+
+        <div className="border-t border-border bg-brand-primary-tint/50 p-5">
+          <p className="text-sm font-semibold text-muted">{t.pinLabel}</p>
+          <p className="mt-1 font-mono text-5xl font-bold tracking-[0.2em] text-brand-ink tabular-nums sm:text-6xl">{result.pin}</p>
+          <p className="mt-3 text-[15px] text-fg/85">{t.pinInstruction}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <CopyButton text={result.pin} />
+            <a href={`sms:?body=${encodeURIComponent(t.pinSms(result.pin))}`} className={buttonClass("secondary", "sm")}>
+              {t.smsPin}
+            </a>
+          </div>
+        </div>
+      </section>
 
       <div className="flex flex-col gap-2 pt-2 sm:flex-row">
         <Link to={path} target="_blank" className={buttonClass("dark", "md", "flex-1")}>

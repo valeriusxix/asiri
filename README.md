@@ -71,6 +71,8 @@ npm run typecheck && npm test && npm run build
 
 `npm test` runs the API test suite (Vitest and Supertest against in-memory SQLite and the mock adapter, with a fake clock and no network). It also runs `scripts/check-copy.mjs`, which fails if the recipient's default claim path ever uses the words *wallet, seed, blockchain, ZEC, shielded, address, crypto, token* or *transaction*.
 
+After `npm run build`, `node scripts/check-logo.mjs` starts the production server on a throwaway database and uses headless Chromium (Playwright; Chrome or Edge also work) to check that the Navbar logo is bundled, loads on the home, transparency, login, dashboard and claim pages, and that nothing returns 404.
+
 ### Optional: AI-written updates
 
 Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number that is not in those totals (whatever its length), a figure that can't be checked against them (a percentage, "$3 million"-style amounts, or numbers above ten written as words), or any crypto jargon. A program can't catch everything: small numbers written as words, or a made-up description of a recipient, would get through. So every report is a draft until the organizer reads it and clicks Publish. Without a key, the template is used everywhere.

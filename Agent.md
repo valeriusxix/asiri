@@ -592,7 +592,7 @@ Document clearly that the server briefly sees the seed during the sweep.
 
 - Mobile-first, works well at 360 px wide. Max content width 640 px on public pages, 1040 px on admin.
 - Fast on low-end Android: no heavy fonts (use system font stack), no images larger than 100 KB, code-split admin routes with `React.lazy`.
-- Colors: deep ink background on hero (`#0B0F14`), warm accent (`#F4B728`, Zcash-adjacent gold), success green `#16A34A`, error `#DC2626`. Light theme for the claim page (readability outdoors).
+- Colors: the brand tokens in `apps/web/src/index.css`, taken from the logo (DECISIONS D-039): violet `#7C44FA` (buttons, links, focus), lilac `#C890FE` (accents on dark surfaces only), ink `#04011F` (hero and dark cards), violet-tinted neutrals, and success `#15803D`, error `#B91C1C`, warning and info colours kept apart from the brand. Light theme for the claim page (readability outdoors).
 - Every page shows the network: a small "TESTNET" pill when `network === "testnet"`.
 - Anything simulated shows a `DemoBadge` reading "Demo".
 - `index.html` includes `<meta name="referrer" content="no-referrer">`.

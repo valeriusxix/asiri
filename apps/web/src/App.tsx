@@ -17,7 +17,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 
 function Loading() {
   return (
-    <div className="flex min-h-dvh items-center justify-center text-black/40">
+    <div className="flex min-h-dvh items-center justify-center text-subtle">
       <Spinner className="size-7" />
     </div>
   );

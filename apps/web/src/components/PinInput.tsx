@@ -57,10 +57,10 @@ export function PinInput({
           return (
             <div
               key={i}
-              className={`flex aspect-[4/5] items-center justify-center rounded-xl bg-white text-[1.75rem] font-bold tabular-nums text-ink ring-inset transition
-                ${invalid ? "ring-2 ring-bad" : isActive ? "ring-[3px] ring-ink" : d.trim() ? "ring-2 ring-ink/50" : "ring-2 ring-black/15"}`}
+              className={`flex aspect-[4/5] items-center justify-center rounded-xl bg-surface text-[1.75rem] font-bold tabular-nums text-fg ring-inset transition
+                ${invalid ? "ring-2 ring-error" : isActive ? "ring-[3px] ring-brand-primary" : d.trim() ? "ring-2 ring-brand-primary/60" : "ring-2 ring-border-strong"}`}
             >
-              {d.trim() || (isActive ? <span className="h-7 w-0.5 animate-pulse bg-ink" /> : "")}
+              {d.trim() || (isActive ? <span className="h-7 w-0.5 animate-pulse bg-brand-ink" /> : "")}
             </div>
           );
         })}

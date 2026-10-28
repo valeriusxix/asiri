@@ -1,12 +1,58 @@
 @import "tailwindcss";
 
+/*
+ * Design tokens, taken from the logo (src/assets/logo.png): a violet gradient square, #7C44FA at the top to
+ * #C890FE at the bottom, with the letter in #04011F. Contrast is checked against WCAG AA (docs/DECISIONS.md D-039).
+ */
 @theme {
-  --color-ink: #0b0f14;
-  --color-ink-soft: #151b23;
-  --color-gold: #f4b728;
-  --color-gold-dark: #c98f0a;
-  --color-ok: #16a34a;
-  --color-bad: #dc2626;
+  /* Brand */
+  --color-brand-primary: #7c44fa; /* gradient top. Buttons, links, focus rings. White on it 5.2:1 */
+  --color-brand-primary-hover: #6a31eb;
+  --color-brand-primary-pressed: #5a22d6;
+  --color-brand-primary-strong: #6a31eb; /* primary as text on tints (5.6:1 on the tint; #7C44FA is 4.48:1) */
+  --color-brand-primary-tint: #f2ecff;
+  --color-brand-secondary: #c890fe; /* gradient bottom. Only on dark surfaces or behind ink text: 2.4:1 on white */
+  --color-brand-secondary-hover: #b97af8;
+  --color-brand-secondary-pressed: #a964ef;
+  --color-brand-secondary-tint: #f8f0ff;
+  --color-brand-ink: #04011f; /* the letter. Dark surfaces and the darkest text */
+  --color-brand-ink-hover: #1a1438;
+  --color-brand-ink-pressed: #2a2350;
+
+  /* Neutrals, tinted toward the brand violet */
+  --color-background: #f7f6fb;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1eff8;
+  --color-border: #e3e0ee;
+  --color-border-strong: #c5bfd8;
+  --color-input: #8e88a6; /* form field edges, 3.4:1 on white */
+  --color-fg: #16132c; /* body text */
+  --color-muted: #58536e; /* secondary text, 7.3:1 on white */
+  --color-subtle: #6c6784; /* small print, 5.0:1 on the background */
+
+  /* Status, kept apart from the brand violet */
+  --color-success: #15803d;
+  --color-success-hover: #166534;
+  --color-success-text: #166534;
+  --color-success-tint: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-error: #b91c1c;
+  --color-error-hover: #991b1b;
+  --color-error-tint: #fef2f2;
+  --color-error-border: #fecaca;
+  --color-warning: #d97706;
+  --color-warning-text: #92400e;
+  --color-warning-tint: #fffbeb;
+  --color-warning-tint-strong: #fef3c7;
+  --color-warning-border: #fcd34d;
+  --color-info-text: #1e40af;
+  --color-info-tint: #eff6ff;
+  --color-info-border: #bfdbfe;
+
+  /* Chart series */
+  --color-chart-received: #7c44fa;
+  --color-chart-paid: #16132c;
+
   --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
 }
@@ -19,8 +65,8 @@ body {
   margin: 0;
   min-width: 320px;
   font-family: var(--font-sans);
-  background: #f7f7f5;
-  color: #111827;
+  background: var(--color-background);
+  color: var(--color-fg);
 }
 
 button,

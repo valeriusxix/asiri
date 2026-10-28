@@ -20,7 +20,7 @@ export default function Donate() {
       <PageTitle title={t.title} sub={fund.data ? t.sub(fund.data.name) : undefined} />
 
       {fund.loading && !fund.data && (
-        <div className="flex justify-center py-16 text-black/50">
+        <div className="flex justify-center py-16 text-subtle">
           <Spinner className="size-7" />
         </div>
       )}
@@ -36,14 +36,14 @@ export default function Donate() {
       {fund.data && (
         <>
           {demoMode && (
-            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-black/[0.05] p-1">
+            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-2xl bg-surface-muted p-1">
               {(["zcash", "demo"] as Tab[]).map((k) => (
                 <button
                   key={k}
                   role="tab"
                   aria-selected={tab === k}
                   onClick={() => setTab(k)}
-                  className={`min-h-11 rounded-xl px-3 text-[15px] font-semibold transition ${tab === k ? "bg-white text-ink shadow-sm" : "text-black/55 hover:text-ink"}`}
+                  className={`min-h-11 rounded-xl px-3 text-[15px] font-semibold transition ${tab === k ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg"}`}
                 >
                   {k === "zcash" ? t.tabZcash : t.tabDemo}
                 </button>
@@ -66,24 +66,24 @@ export function ZcashCard({ fund }: { fund: Fund }) {
   return (
     <Card className="text-center">
       {mock && (
-        <div className="mb-4 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-left text-sm text-amber-950 ring-1 ring-inset ring-amber-200">
+        <div className="mb-4 flex items-start gap-2 rounded-xl bg-warning-tint p-3 text-left text-sm text-warning-text ring-1 ring-inset ring-warning-border">
           <DemoBadge className="mt-0.5 shrink-0" />
           <p>{t.mockNote}</p>
         </div>
       )}
-      <p className="text-sm font-semibold text-black/60">{t.scan}</p>
+      <p className="text-sm font-semibold text-muted">{t.scan}</p>
       <div className="mt-4 flex justify-center">
         <QR value={fund.paymentUri} title={t.scan} />
       </div>
-      <p className="mx-auto mt-5 max-w-sm text-[15px] font-medium text-ink">
-        <Icon name="shield" className="mr-1.5 inline size-5 align-[-4px] text-ok" />
+      <p className="mx-auto mt-5 max-w-sm text-[15px] font-medium text-fg">
+        <Icon name="shield" className="mr-1.5 inline size-5 align-[-4px] text-success" />
         {t.privateLine}
       </p>
       <CopyBox className="mt-5 text-left" label={t.addressLabel} value={fund.receiveAddress} />
       <a href={fund.paymentUri} className={buttonClass("dark", "lg", "mt-4 w-full")}>
         {t.openWallet}
       </a>
-      {fund.network === "testnet" && !mock && <p className="mt-3 text-sm text-black/50">{t.testnetNote}</p>}
+      {fund.network === "testnet" && !mock && <p className="mt-3 text-sm text-subtle">{t.testnetNote}</p>}
     </Card>
   );
 }
@@ -100,13 +100,13 @@ function DemoDonation({ fundCurrency }: { fundCurrency: CurrencyCode }) {
   if (done !== null) {
     return (
       <Card className="text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-ok text-white">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-success text-white">
           <Icon name="check" className="size-7" />
         </div>
         <h2 className="mt-4 flex items-center justify-center gap-2 text-2xl font-bold">
           {t.thanksTitle} <DemoBadge />
         </h2>
-        <p className="mx-auto mt-2 max-w-sm text-[15px] text-black/65">{t.thanksBody(formatMoney(done.minor, done.currency))}</p>
+        <p className="mx-auto mt-2 max-w-sm text-[15px] text-muted">{t.thanksBody(formatMoney(done.minor, done.currency))}</p>
         <div className="mt-6 flex flex-col gap-2">
           <ButtonLink to="/transparency" variant="dark" block>
             {t.seeTransparency}
@@ -152,7 +152,7 @@ function DemoDonation({ fundCurrency }: { fundCurrency: CurrencyCode }) {
       >
         <div className="flex items-start gap-2">
           <DemoBadge className="mt-0.5" />
-          <p className="text-[15px] text-black/65">{t.demoIntro}</p>
+          <p className="text-[15px] text-muted">{t.demoIntro}</p>
         </div>
         <Field label={t.currencyLabel} htmlFor="currency">
           <select

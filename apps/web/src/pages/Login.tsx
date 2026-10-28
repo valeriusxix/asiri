@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ApiError, api } from "../api";
-import { Logo, NetworkPill } from "../components/Layout";
+import { Navbar } from "../components/Navbar";
 import { Alert, Button, Card, Field, Spinner, inputClass } from "../components/ui";
 import { admin as t, common } from "../copy";
 
@@ -13,14 +13,13 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-[#f4f4f1] px-4 py-10">
+    <div className="flex min-h-dvh flex-col bg-background">
+      <Navbar variant="public" links={false} width="max-w-[1120px]" />
+      <main className="flex flex-1 items-start justify-center px-4 pb-16 pt-10 sm:items-center sm:pt-0">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex items-center justify-center gap-2">
-          <Logo />
-          <NetworkPill />
-        </div>
-        <Card>
-          <h1 className="mb-5 text-xl font-bold">{t.loginTitle}</h1>
+        <Card className="p-6!">
+          <div className="mb-5 h-1.5 w-12 rounded-full bg-brand-primary" aria-hidden />
+          <h1 className="mb-5 text-xl font-bold text-fg">{t.loginTitle}</h1>
           <form
             className="space-y-4"
             onSubmit={async (e) => {
@@ -53,7 +52,7 @@ export default function Login() {
               />
             </Field>
             {error && <Alert>{error}</Alert>}
-            <Button type="submit" variant="dark" size="lg" block disabled={busy}>
+            <Button type="submit" size="lg" block disabled={busy}>
               {busy ? (
                 <>
                   <Spinner /> {t.loggingIn}
@@ -65,6 +64,7 @@ export default function Login() {
           </form>
         </Card>
       </div>
+      </main>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useParams } from "react-router";
 import { ApiError, api } from "../api";
-import { Logo, NetworkPill } from "../components/Layout";
+import { Navbar } from "../components/Navbar";
 import { PinInput } from "../components/PinInput";
 import { Alert, Button, CopyBox, DemoBadge, Field, Icon, Spinner, inputClass } from "../components/ui";
 import { claim as t, claimAdvanced as adv } from "../copy";
@@ -105,16 +105,13 @@ export function Claim() {
   const network = health?.network ?? "testnet";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-[#fbfaf7] text-ink">
-      <header className="mx-auto flex h-14 w-full max-w-[640px] items-center gap-2 px-4">
-        <Logo />
-        <NetworkPill />
-      </header>
+    <div className="flex min-h-dvh flex-col bg-background text-fg">
+      <Navbar variant="minimal" />
       <main className="mx-auto w-full max-w-[640px] flex-1 px-4 pb-12 pt-2">
         {state.kind === "loading" && (
           <Centered>
-            <Spinner className="size-8 text-ink/60" />
-            <p className="mt-4 text-lg text-black/60">{t.loading}</p>
+            <Spinner className="size-8 text-muted" />
+            <p className="mt-4 text-lg text-muted">{t.loading}</p>
           </Centered>
         )}
 
@@ -166,24 +163,24 @@ export function Claim() {
                 <OptionCard icon="bank" title={t.cashoutTitle} body={t.cashoutBody} badge={<DemoBadge />} onClick={() => setState({ kind: "cashout" })} />
               )}
               <OptionCard icon="clock" title={t.keepTitle} body={t.keepBody} onClick={() => setState({ kind: "keep" })} />
-              <details className="group rounded-2xl bg-white ring-1 ring-black/[0.08]">
-                <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 text-[15px] font-semibold text-black/70 [&::-webkit-details-marker]:hidden">
-                  <Icon name="wallet" className="size-5 text-black/50" />
+              <details className="group rounded-2xl bg-surface ring-1 ring-border">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 text-[15px] font-semibold text-fg/80 [&::-webkit-details-marker]:hidden">
+                  <Icon name="wallet" className="size-5 text-subtle" />
                   <span className="flex-1">{adv.toggle}</span>
-                  <span className="text-black/40 transition-transform group-open:rotate-90">
+                  <span className="text-subtle transition-transform group-open:rotate-90">
                     <Icon name="arrow" className="size-4" />
                   </span>
                 </summary>
-                <div className="border-t border-black/[0.06] px-4 pb-4 pt-3">
-                  <p className="text-[15px] text-black/70">{adv.intro}</p>
-                  <p className="mt-1 text-sm text-black/50">{adv.amount(unlocked.amountZecDisplay)}</p>
+                <div className="border-t border-border px-4 pb-4 pt-3">
+                  <p className="text-[15px] text-fg/80">{adv.intro}</p>
+                  <p className="mt-1 text-sm text-subtle">{adv.amount(unlocked.amountZecDisplay)}</p>
                   <Button variant="secondary" className="mt-3" onClick={() => setState({ kind: "wallet" })}>
                     {adv.send}
                   </Button>
                 </div>
               </details>
             </div>
-            <p className="mt-8 text-center text-sm text-black/50">
+            <p className="mt-8 text-center text-sm text-subtle">
               <Icon name="shield" className="mr-1.5 inline size-4 align-[-3px]" />
               {t.privacy}
             </p>
@@ -269,14 +266,14 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 function Message({ icon, tone, title, children }: { icon: "check" | "alert" | "clock" | "lock"; tone: "success" | "neutral" | "warning"; title: string; children: ReactNode }) {
-  const tones = { success: "bg-ok text-white", neutral: "bg-black/[0.06] text-black/70", warning: "bg-amber-100 text-amber-800" };
+  const tones = { success: "bg-success text-white", neutral: "bg-surface-muted text-fg/80", warning: "bg-warning-tint-strong text-warning-text" };
   return (
     <div className="flex min-h-[55dvh] flex-col items-center justify-center text-center">
       <div className={`flex size-16 items-center justify-center rounded-full ${tones[tone]}`}>
         <Icon name={icon} className="size-8" />
       </div>
       <h1 className="mt-5 text-[1.75rem] font-bold leading-tight">{title}</h1>
-      <div className="mt-3 w-full max-w-sm text-lg leading-relaxed text-black/65">{children}</div>
+      <div className="mt-3 w-full max-w-sm text-lg leading-relaxed text-muted">{children}</div>
     </div>
   );
 }
@@ -333,11 +330,11 @@ function PinStep({ fundName, initialMessage, onUnlock }: { fundName: string; ini
         void submit();
       }}
     >
-      <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-gold/20 text-gold-dark">
+      <div className="mx-auto mb-6 flex size-14 items-center justify-center rounded-2xl bg-brand-primary-tint text-brand-primary-strong">
         <Icon name="lock" className="size-7" />
       </div>
       <h1 className="text-center text-[1.75rem] font-bold leading-tight">{t.receivedFrom(fundName)}</h1>
-      <p className="mx-auto mt-3 max-w-sm text-center text-lg text-black/65">{t.enterPin}</p>
+      <p className="mx-auto mt-3 max-w-sm text-center text-lg text-muted">{t.enterPin}</p>
       <div className="mt-8">
         <PinInput
           value={pin}
@@ -353,7 +350,7 @@ function PinStep({ fundName, initialMessage, onUnlock }: { fundName: string; ini
       </div>
       <div className="mx-auto mt-5 max-w-[22rem] space-y-4">
         {message && <Alert tone={invalid ? "error" : "info"}>{message}</Alert>}
-        <Button type="submit" size="lg" variant="dark" block disabled={pin.length !== 6 || busy}>
+        <Button type="submit" size="lg" block disabled={pin.length !== 6 || busy}>
           {busy ? (
             <>
               <Spinner /> {t.checking}
@@ -362,7 +359,7 @@ function PinStep({ fundName, initialMessage, onUnlock }: { fundName: string; ini
             t.continue
           )}
         </Button>
-        <p className="text-center text-sm text-black/50">{t.pinHelp}</p>
+        <p className="text-center text-sm text-subtle">{t.pinHelp}</p>
       </div>
     </form>
   );
@@ -370,9 +367,9 @@ function PinStep({ fundName, initialMessage, onUnlock }: { fundName: string; ini
 
 function AmountHero({ unlocked, fundName }: { unlocked: ClaimUnlock; fundName: string }) {
   return (
-    <div className="rounded-3xl bg-ink px-5 py-8 text-center text-white">
+    <div className="rounded-3xl bg-brand-ink px-5 py-8 text-center text-white">
       <p className="text-[2.5rem] font-extrabold leading-none tracking-tight sm:text-5xl">
-        <span className="text-gold">{unlocked.amountDisplay}</span> {t.isYours}
+        <span className="text-brand-secondary">{unlocked.amountDisplay}</span> {t.isYours}
       </p>
       <p className="mt-3 text-lg text-white/75">{t.from(fundName)}</p>
       <p className="mx-auto mt-5 max-w-xs rounded-2xl bg-white/10 px-3.5 py-1.5 text-[15px] text-white/80">
@@ -388,18 +385,18 @@ function OptionCard({ icon, title, body, badge, onClick }: { icon: "bank" | "clo
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-4 rounded-2xl bg-white p-4 text-left ring-1 ring-black/[0.08] transition hover:ring-ink/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink active:scale-[0.99]"
+      className="flex w-full items-center gap-4 rounded-2xl bg-surface p-4 text-left ring-1 ring-border transition hover:ring-brand-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-primary active:scale-[0.99]"
     >
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold-dark">
+      <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand-primary-tint text-brand-primary-strong">
         <Icon name={icon} className="size-6" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2 text-lg font-bold text-ink">
+        <span className="flex flex-wrap items-center gap-2 text-lg font-bold text-fg">
           {title} {badge}
         </span>
-        <span className="mt-0.5 block text-[15px] text-black/60">{body}</span>
+        <span className="mt-0.5 block text-[15px] text-muted">{body}</span>
       </span>
-      <Icon name="arrow" className="size-5 shrink-0 text-black/35" />
+      <Icon name="arrow" className="size-5 shrink-0 text-subtle" />
     </button>
   );
 }
@@ -407,14 +404,14 @@ function OptionCard({ icon, title, body, badge, onClick }: { icon: "bank" | "clo
 function StepHeader({ title, amount, onBack, badge }: { title: string; amount: string; onBack: () => void; badge?: ReactNode }) {
   return (
     <div className="mb-6">
-      <button type="button" onClick={onBack} className="-ml-2 mb-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-[15px] font-semibold text-black/60 hover:text-ink">
+      <button type="button" onClick={onBack} className="-ml-2 mb-3 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-[15px] font-semibold text-muted hover:text-fg">
         <Icon name="arrow" className="size-4 rotate-180" />
         {t.back}
       </button>
       <h1 className="flex flex-wrap items-center gap-2 text-[1.75rem] font-bold leading-tight">
         {title} {badge}
       </h1>
-      <p className="mt-1 text-lg text-black/60">{amount}</p>
+      <p className="mt-1 text-lg text-muted">{amount}</p>
     </div>
   );
 }
@@ -486,9 +483,9 @@ export function CashoutStep({ unlocked, onBack, onSubmit }: { unlocked: ClaimUnl
             t.sendToBank
           )}
         </Button>
-        <div className="rounded-xl bg-amber-50 p-3.5 text-[15px] text-amber-950 ring-1 ring-inset ring-amber-200">
+        <div className="rounded-xl bg-warning-tint p-3.5 text-[15px] text-warning-text ring-1 ring-inset ring-warning-border">
           <p className="font-semibold">{t.demoNote}</p>
-          <p className="mt-1 text-amber-900/80">{t.notKept}</p>
+          <p className="mt-1 text-warning-text">{t.notKept}</p>
         </div>
       </div>
     </form>

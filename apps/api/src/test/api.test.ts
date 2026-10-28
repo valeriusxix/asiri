@@ -28,6 +28,22 @@ describe("auth", () => {
     expect((await request(h.app).get("/api/auth/me")).status).toBe(401);
   });
 
+  it("in production, login over plain HTTP says https_required instead of silently setting no cookie (audit M3)", async () => {
+    const h = setup({ NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123", SESSION_SECRET: "9f2c4e7a1b3d5f8e0a6c2b4d7e9f1a3c5b8d0e2f4a6c8e1b3d5f7a9c2e4b6d8f" });
+    const credentials = { email: h.env.ADMIN_EMAIL, password: h.env.ADMIN_PASSWORD };
+
+    const plain = await request(h.app).post("/api/auth/login").send(credentials);
+    expect(plain.status).toBe(400);
+    expect(plain.body).toEqual({ error: "https_required" });
+    expect(plain.headers["set-cookie"]).toBeUndefined();
+
+    // Behind a TLS-terminating proxy (trust proxy = 1 in production), the same login works and the cookie is Secure.
+    const tls = await request(h.app).post("/api/auth/login").set("X-Forwarded-Proto", "https").send(credentials);
+    expect(tls.status).toBe(200);
+    const cookies = ([] as string[]).concat(tls.headers["set-cookie"] ?? []);
+    expect(cookies.some((c) => c.startsWith("asiri_session=") && /;\s*secure/i.test(c) && /;\s*httponly/i.test(c))).toBe(true);
+  });
+
   it("logs in with the env credentials, sets an httpOnly cookie, and logs out", async () => {
     const h = setup();
     const agent = request.agent(h.app);

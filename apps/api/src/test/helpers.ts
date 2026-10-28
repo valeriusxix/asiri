@@ -2,6 +2,7 @@ import request from "supertest";
 import { createApp, getServices } from "../app.js";
 import { openDb } from "../db/db.js";
 import { parseEnv } from "../env.js";
+import { createLogger } from "../lib/logger.js";
 import type { Fetcher } from "../services/price.js";
 import { MockAdapter } from "../zcash/mock.js";
 
@@ -42,6 +43,7 @@ export function setup(envOverrides: Record<string, string> = {}, start = new Dat
     now,
     fetcher: offlineFetcher,
     webDistDir: "/nonexistent",
+    logger: createLogger("silent"),
     rateLimits: { claims: 1000, login: 1000, global: 1000 },
   });
   const { ctx, jobs } = getServices(app);

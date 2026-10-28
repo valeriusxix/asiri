@@ -116,7 +116,8 @@ docker run -p 8787:8787 -v asiri-data:/app/data --env-file .env asiri
 ```
 
 - **Mount a persistent volume at `/app/data`.** It holds the SQLite database and the treasury wallet. Without it, the wallet is lost on redeploy.
-- The image runs with `NODE_ENV=production`. Boot then refuses the default `ADMIN_PASSWORD` and the example `SESSION_SECRET` (it is public, so anyone could sign an admin cookie with it). Generate a new secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Session cookies are `Secure`. Put it behind HTTPS (any host with TLS termination works, such as Fly.io, Railway, Render or a VPS with Caddy) and set `PUBLIC_WEB_URL` to the public HTTPS URL.
+- The image runs with `NODE_ENV=production`. Boot then refuses the default `ADMIN_PASSWORD` and the example `SESSION_SECRET` (it is public, so anyone could sign an admin cookie with it). Generate a new secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`. Session cookies are `Secure`. Put it behind HTTPS (any host with TLS termination works, such as Fly.io, Railway, Render or a VPS with Caddy) and set `PUBLIC_WEB_URL` to the public HTTPS URL. Over plain HTTP, organizer login answers `https_required`, and the login page says so.
+- To try the image on your own machine over `http://localhost`, add `-e NODE_ENV=development` to `docker run`, so login works without HTTPS.
 - The Dockerfile has not been built on the development machine, which has no Docker. The Rust stage follows zingolib's documented build steps, and the Node stage runs the same commands as above.
 
 ## Architecture

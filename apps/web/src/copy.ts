@@ -219,6 +219,7 @@ export const admin = {
   loggingIn: "Logging in…",
   badLogin: "Wrong email or password.",
   rateLimited: "Too many attempts. Please wait a minute.",
+  httpsRequired: "Log in over HTTPS. This server runs in production mode, which only sends the login cookie over a secure connection.",
   logout: "Log out",
   navDashboard: "Dashboard",
   navNew: "New payout",

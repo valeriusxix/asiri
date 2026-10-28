@@ -189,13 +189,12 @@ The full product spec is [Agent.md](Agent.md). Every deviation from it is logged
 
 ## Roadmap
 
-1. Admin tools for the real treasury: resolve `claiming` payouts against the wallet's transactions, and show sync health and mixnet status.
-2. More languages for recipient pages (planned: French, Spanish, Arabic and Nigerian Pidgin, among others).
-3. Mode B: fund a one-time wallet per link, so the server never holds a claimable secret.
-4. Cross-chain donations, swapping into shielded ZEC through an intents or swap provider.
-5. Multi-organizer approval with FROST threshold signing.
-6. Licensed off-ramp partners, region by region, for bank and mobile-money cash-outs.
-7. More currencies, added in the currency config.
+The full list, with notes on what is already partly built, is in [docs/ROADMAP.md](docs/ROADMAP.md). Every item keeps three things true: recipients need only a link and a PIN, Asiri collects no recipient identity, and anyone can check the totals with the viewing key.
+
+- **Next:** the receiver chooses the withdrawal currency, more currencies and languages, more ways to share links (Telegram, Signal, email, printable QR), mainnet after a security review, and several funds on one deployment.
+- **Later:** real cash-out and real card or bank donations through licensed partners, FROST multi-organizer approval, a one-time wallet per link (Mode B), donations from other chains, and partial withdrawals.
+- **Exploring:** opening Asiri to individuals and small businesses, which brings licensing and compliance work in each region.
+- **What we won't do:** collect bank details in a chat bot, collect recipient phone numbers or identity, publish recipient-level data, or require recipients to install a wallet.
 
 ## API walkthrough with curl (mock mode)
 

@@ -130,9 +130,9 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
             <p className="mt-3 whitespace-pre-line text-[16px] leading-relaxed text-black/80">{data.latestReport.body}</p>
             {data.latestReport.stats && (
               <dl className="mt-4 grid grid-cols-3 gap-2 rounded-xl bg-black/[0.03] p-3 text-center">
-                <MiniStat label={t.raised} value={data.latestReport.stats.donationsReceived} />
-                <MiniStat label={t.paidOut} value={data.latestReport.stats.paidOut} />
-                <MiniStat label={t.payments} value={String(data.latestReport.stats.paymentsCount)} />
+                <MiniStat label={t.periodRaised} value={data.latestReport.stats.donationsReceived} />
+                <MiniStat label={t.periodPaidOut} value={data.latestReport.stats.paidOut} />
+                <MiniStat label={t.periodPayments} value={String(data.latestReport.stats.paymentsCount)} />
               </dl>
             )}
           </>

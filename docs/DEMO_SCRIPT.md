@@ -52,7 +52,8 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 - Open the WhatsApp message and tap the link. It shows "You've received support from Lagos Community Relief Fund".
 - Enter the 6-digit PIN and tap **Continue**. It shows **₦50,000 is yours**.
 - Tap **Cash out to my bank**, choose a bank, enter any 10 digits and tap **Send to my bank**. It shows **Done. Take care.**
-- > "No app, no seed phrase, no jargon. The recipient never sees the words wallet or crypto. We don't keep their bank details."
+- > "No app, no seed phrase, no jargon. The everyday path never asks about wallets or crypto; that sits under Advanced, for people who already use Zcash. We don't keep their bank details."
+- If you refresh the page now, it says "You have received this support". The link is spent, not broken.
 - Optionally, open **Advanced: send to a Zcash wallet** to show that people who already have a Zcash wallet can paste an address instead.
 - Open the same link again. It now says "This support has already been received", so a forwarded link is useless once claimed.
 

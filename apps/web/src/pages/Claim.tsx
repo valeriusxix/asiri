@@ -5,6 +5,7 @@ import { Logo, NetworkPill } from "../components/Layout";
 import { PinInput } from "../components/PinInput";
 import { Alert, Button, CopyBox, DemoBadge, Field, Icon, Spinner, inputClass } from "../components/ui";
 import { claim as t, claimAdvanced as adv } from "../copy";
+import { rememberClaimed, tabStorage, wasClaimedHere } from "../claimMemory";
 import { formatDateFriendly } from "../format";
 import { useHealth } from "../hooks";
 import type { ClaimRedeem, ClaimUnlock } from "../types";
@@ -20,6 +21,7 @@ type State =
   | { kind: "wallet" }
   | { kind: "keep" }
   | { kind: "done"; result: ClaimRedeem }
+  | { kind: "claimed_here" }
   | { kind: "terminal"; status: Terminal };
 
 /**
@@ -39,7 +41,8 @@ export function Claim() {
   const open = useCallback(async () => {
     const secret = secretRef.current;
     if (!secret) {
-      setState({ kind: "not_found", incomplete: true });
+      // A reload after "Done" has no secret any more: say it was received, not that the link is broken (audit L2).
+      setState(wasClaimedHere(tabStorage(), id) ? { kind: "claimed_here" } : { kind: "not_found", incomplete: true });
       return;
     }
     setState({ kind: "loading" });
@@ -61,6 +64,7 @@ export function Claim() {
 
   const finish = (result: ClaimRedeem) => {
     setState({ kind: "done", result });
+    rememberClaimed(tabStorage(), id);
     secretRef.current = "";
     history.replaceState(null, "", `/c/${id}`);
   };
@@ -111,6 +115,12 @@ export function Claim() {
             <Spinner className="size-8 text-ink/60" />
             <p className="mt-4 text-lg text-black/60">{t.loading}</p>
           </Centered>
+        )}
+
+        {state.kind === "claimed_here" && (
+          <Message icon="check" tone="success" title={t.claimedHereTitle}>
+            {t.claimedHere}
+          </Message>
         )}
 
         {state.kind === "not_found" && (
@@ -204,7 +214,7 @@ export function Claim() {
                 finish(await api.claims.redeemToAddress(id, unlocked.claimToken, address));
                 return null;
               } catch (err) {
-                if (err instanceof ApiError && err.code === "invalid_address") return adv.invalid;
+                if (err instanceof ApiError && (err.code === "invalid_address" || err.code === "validation_error")) return adv.invalid;
                 return redeemError(err);
               }
             }}
@@ -222,23 +232,34 @@ export function Claim() {
 
         {state.kind === "done" && (
           <Message icon="check" tone="success" title={t.doneTitle}>
-            {state.result.method === "zcash_address" ? (
-              <>
-                <p>{adv.doneWallet}</p>
-                {state.result.txid && <CopyBox className="mt-5 text-left" label={adv.txid} value={state.result.txid} />}
-              </>
-            ) : (
-              <>
-                <p>{state.result.demo ? t.doneBank : t.doneSent}</p>
-                {state.result.demo && <DemoBadge className="mt-3" />}
-              </>
-            )}
+            <DoneDetails result={state.result} />
           </Message>
         )}
 
         {state.kind === "terminal" && <TerminalMessage status={state.status} onRetry={open} />}
       </main>
     </div>
+  );
+}
+
+/**
+ * What the done screen says under "Done. Take care." A bank cash-out is always a demo: even when
+ * OFFRAMP_ZCASH_ADDRESS sends real funds on chain, no bank transfer reaches the recipient (audit L3).
+ */
+export function DoneDetails({ result }: { result: ClaimRedeem }) {
+  if (result.method === "zcash_address") {
+    return (
+      <>
+        <p>{adv.doneWallet}</p>
+        {result.txid && <CopyBox className="mt-5 text-left" label={adv.txid} value={result.txid} />}
+      </>
+    );
+  }
+  return (
+    <>
+      <p>{t.doneBank}</p>
+      <DemoBadge className="mt-3" />
+    </>
   );
 }
 
@@ -473,7 +494,8 @@ function WalletStep({ unlocked, testnet, onBack, onSubmit }: { unlocked: ClaimUn
       noValidate
       onSubmit={async (e) => {
         e.preventDefault();
-        const value = address.trim();
+        // Pasted addresses often carry spaces or line breaks; no Zcash address contains any.
+        const value = address.replace(/\s+/g, "");
         if (value.length < 30) {
           setError(adv.invalid);
           return;

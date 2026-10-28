@@ -357,8 +357,11 @@ export async function redeemClaim(
   input: { claimToken: string } & ({ method: "zcash_address"; zcashAddress: string } | { method: "cashout_demo" }),
 ): Promise<RedeemResult> {
   const { db, env, adapter } = ctx;
+  // Only the holder of this payout's claim token learns anything about it (audit L1). The id alone is in the URL path,
+  // so it reaches access logs and link previews: an unknown id, a wrong token and a stale token get the same answer.
   const found = getRow(db, id);
-  if (!found) throw new HttpError(404, "not_found");
+  const tokenOk = verifySecret(input.claimToken, found?.claim_token_hash ?? DUMMY_HASH);
+  if (!found || !found.claim_token_hash || !tokenOk) throw new HttpError(401, "claim_session_expired");
   const row = expireIfDue(ctx, found);
   assertClaimable(row, true);
 
@@ -405,9 +408,9 @@ export async function redeemClaim(
     }
   }
 
+  // The spent token's hash stays, so replaying it is recognised as a double claim (409), not as a wrong token.
   db.prepare(
-    `UPDATE payouts SET status = 'claimed', claim_method = ?, claim_txid = ?, claimed_at = ?,
-            claim_token_hash = NULL, claim_token_expires_at = NULL
+    `UPDATE payouts SET status = 'claimed', claim_method = ?, claim_txid = ?, claimed_at = ?
      WHERE id = ? AND status = 'claiming'`,
   ).run(input.method, txid ?? null, ctx.now().toISOString(), id);
   audit(db, "payout.claimed", { id, method: input.method, amountZat: row.amount_zat, category: row.category }, ctx.now());

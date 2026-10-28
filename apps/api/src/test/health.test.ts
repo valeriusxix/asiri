@@ -49,6 +49,14 @@ describe("parseEnv", () => {
     expect(() => parseEnv({ ...example, NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123", SESSION_SECRET: random })).not.toThrow();
   });
 
+  it("builds claim links from RENDER_EXTERNAL_URL unless PUBLIC_WEB_URL is set", () => {
+    const { PUBLIC_WEB_URL: _, ...base } = TEST_ENV as Record<string, string>;
+    const render = "https://asiri.onrender.com";
+    expect(parseEnv({ ...base, RENDER_EXTERNAL_URL: render }).PUBLIC_WEB_URL).toBe(render);
+    expect(parseEnv({ ...base, PUBLIC_WEB_URL: "", RENDER_EXTERNAL_URL: render }).PUBLIC_WEB_URL).toBe(render);
+    expect(parseEnv({ ...base, PUBLIC_WEB_URL: "https://give.example.org/", RENDER_EXTERNAL_URL: render }).PUBLIC_WEB_URL).toBe("https://give.example.org");
+  });
+
   it("refuses non-random session secrets in production", () => {
     const prod = { ...TEST_ENV, NODE_ENV: "production", ADMIN_PASSWORD: "a-real-password-123" };
     for (const secret of ["s".repeat(64), "0".repeat(40), "replace-with-something-random-later-please", "change-me-change-me-change-me-change-me"]) {

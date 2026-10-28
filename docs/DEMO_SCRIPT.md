@@ -12,7 +12,10 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
    PRICE_SOURCE=fixed                        # optional: numbers will not move during the pitch
    FIXED_ZEC_NGN=1600000                     # set to today's rate if you use fixed
    ANTHROPIC_API_KEY=sk-ant-...              # optional: AI-written update; without it the template is used
+   ADMIN_PASSWORD=<a password only you know> # required: the default is printed in the README
+   SESSION_SECRET=<64 random hex chars>      # required: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
    ```
+   **Change `ADMIN_PASSWORD` and `SESSION_SECRET` before every demo.** The laptop can be reached by everyone on the venue Wi-Fi, and the defaults are public. With them, anyone there could log in as the organizer mid-pitch, or forge the session cookie, then cancel your payout or create their own. The server prints a warning at startup while either default is still in use.
    Keep `NODE_ENV=development`. Production mode sets secure cookies, which need HTTPS.
 3. **Build, seed and start on one port:**
    ```bash

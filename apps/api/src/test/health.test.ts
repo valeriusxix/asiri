@@ -4,7 +4,7 @@ import path from "node:path";
 import { parse as parseDotenv } from "dotenv";
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { isPlaceholderSecret, parseEnv, ROOT_DIR } from "../env.js";
+import { insecureDefaults, isPlaceholderSecret, parseEnv, ROOT_DIR } from "../env.js";
 import { setup, TEST_ENV } from "./helpers.js";
 
 describe("GET /api/health", () => {
@@ -55,6 +55,18 @@ describe("parseEnv", () => {
       expect(() => parseEnv({ ...prod, SESSION_SECRET: secret })).toThrow(/SESSION_SECRET/);
     }
     expect(isPlaceholderSecret(randomBytes(32).toString("base64url"))).toBe(false);
+  });
+
+  it("warns at boot while the public login defaults are in use, without echoing them (audit H4)", () => {
+    const example = parseDotenv(readFileSync(path.join(ROOT_DIR, ".env.example"), "utf8"));
+    const warnings = insecureDefaults(parseEnv(example));
+    expect(warnings).toHaveLength(2);
+    expect(warnings.join(" ")).toMatch(/ADMIN_PASSWORD/);
+    expect(warnings.join(" ")).toMatch(/SESSION_SECRET/);
+    expect(warnings.join(" ")).not.toContain(example.ADMIN_PASSWORD!);
+    expect(warnings.join(" ")).not.toContain(example.SESSION_SECRET!);
+    const changed = { ...example, ADMIN_PASSWORD: "a-real-password-123", SESSION_SECRET: randomBytes(32).toString("hex") };
+    expect(insecureDefaults(parseEnv(changed))).toEqual([]);
   });
 
   it("requires LIGHTWALLETD_URL in zingo mode", () => {

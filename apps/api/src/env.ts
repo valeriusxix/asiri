@@ -96,6 +96,18 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   return result.data;
 }
 
+/**
+ * Public defaults from `.env.example` that are still in use (production refuses them at boot). Fine on localhost,
+ * but anyone who can reach the server, such as everyone on the venue Wi-Fi during a demo, could log in as the
+ * organizer (audit H4). Messages never include the values.
+ */
+export function insecureDefaults(env: Env): string[] {
+  const warnings: string[] = [];
+  if (env.ADMIN_PASSWORD === "change-me-now") warnings.push("ADMIN_PASSWORD is the public default from .env.example");
+  if (isPlaceholderSecret(env.SESSION_SECRET)) warnings.push("SESSION_SECRET is the public example value, so admin cookies can be forged");
+  return warnings;
+}
+
 /** Load `.env` from the repo root (falls back to the cwd). Existing process env wins. */
 export function loadDotenvFile(): void {
   const candidates = [path.join(ROOT_DIR, ".env"), path.join(process.cwd(), ".env")];

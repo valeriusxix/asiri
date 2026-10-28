@@ -163,7 +163,6 @@ export const claim = {
   claimedHereTitle: "You have received this support",
   claimedHere: "You can close this page now. Take care.",
   doneBank: "This was a demo, so no real bank transfer happened.",
-  doneSent: "The money has been sent.",
   claimedTitle: "This support has already been received",
   claimed: "If this was not you, please tell the sender.",
   expiredTitle: "This link has expired",

@@ -232,23 +232,34 @@ export function Claim() {
 
         {state.kind === "done" && (
           <Message icon="check" tone="success" title={t.doneTitle}>
-            {state.result.method === "zcash_address" ? (
-              <>
-                <p>{adv.doneWallet}</p>
-                {state.result.txid && <CopyBox className="mt-5 text-left" label={adv.txid} value={state.result.txid} />}
-              </>
-            ) : (
-              <>
-                <p>{state.result.demo ? t.doneBank : t.doneSent}</p>
-                {state.result.demo && <DemoBadge className="mt-3" />}
-              </>
-            )}
+            <DoneDetails result={state.result} />
           </Message>
         )}
 
         {state.kind === "terminal" && <TerminalMessage status={state.status} onRetry={open} />}
       </main>
     </div>
+  );
+}
+
+/**
+ * What the done screen says under "Done. Take care." A bank cash-out is always a demo: even when
+ * OFFRAMP_ZCASH_ADDRESS sends real funds on chain, no bank transfer reaches the recipient (audit L3).
+ */
+export function DoneDetails({ result }: { result: ClaimRedeem }) {
+  if (result.method === "zcash_address") {
+    return (
+      <>
+        <p>{adv.doneWallet}</p>
+        {result.txid && <CopyBox className="mt-5 text-left" label={adv.txid} value={result.txid} />}
+      </>
+    );
+  }
+  return (
+    <>
+      <p>{t.doneBank}</p>
+      <DemoBadge className="mt-3" />
+    </>
   );
 }
 

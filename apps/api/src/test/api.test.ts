@@ -313,6 +313,19 @@ describe("price service", () => {
     });
   });
 
+  it("sends the CoinGecko Demo API key when set, and reports failures without it", async () => {
+    let headers: Record<string, string> | undefined;
+    const keyed = new PriceService({ source: "coingecko", fixed: FIXED, apiKey: "CG-test-key", fetcher: async (u, i) => ((headers = i?.headers), ok(u, i)) });
+    expect((await keyed.get()).sources.USD).toBe("coingecko");
+    expect(headers?.["x-cg-demo-api-key"]).toBe("CG-test-key");
+
+    const reasons: string[] = [];
+    const refused = new PriceService({ source: "coingecko", fixed: FIXED, apiKey: "CG-test-key", onError: (r) => reasons.push(r), fetcher: async () => ({ ok: false, status: 429, json: async () => ({}) }) });
+    expect((await refused.get()).sources.USD).toBe("fixed");
+    expect(reasons).toEqual(["CoinGecko answered HTTP 429"]);
+    expect(reasons.join(" ")).not.toContain("CG-test-key");
+  });
+
   it("falls back to every fixed rate when the fetch fails or returns junk", async () => {
     const failing = new PriceService({ source: "coingecko", fixed: FIXED, fetcher: async () => { throw new Error("offline"); } });
     expect(await failing.get()).toMatchObject({ rates: FIXED, sources: { NGN: "fixed", USD: "fixed", GBP: "fixed", CAD: "fixed" } });

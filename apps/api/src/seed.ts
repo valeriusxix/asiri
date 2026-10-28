@@ -37,7 +37,7 @@ if (hasData(db)) {
 async function main(): Promise<void> {
   const logger = createLogger("warn");
   // Seed at the rates the app will display (live CoinGecko, or the fixed fallback), so the totals add up.
-  const quote = await new PriceService({ source: env.PRICE_SOURCE, fixed: fixedRates(env) }).get();
+  const quote = await new PriceService({ source: env.PRICE_SOURCE, fixed: fixedRates(env), apiKey: env.COINGECKO_API_KEY }).get();
   const r = await seedDemo({ db, env, logger, writer: createReportWriter(env, logger), rates: quote.rates });
   const c = env.FUND_CURRENCY;
   console.log(

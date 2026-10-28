@@ -13,6 +13,7 @@ export interface PriceQuote {
 
 export type Fetcher = (url: string, init?: { signal?: AbortSignal; headers?: Record<string, string> }) => Promise<{
   ok: boolean;
+  status?: number;
   json(): Promise<unknown>;
 }>;
 
@@ -25,6 +26,10 @@ export interface PriceServiceOptions {
   /** After a failed fetch, serve the fixed rates for this long before retrying. */
   failureTtlMs?: number;
   timeoutMs?: number;
+  /** CoinGecko Demo API key, sent as x-cg-demo-api-key. Keyless requests from shared cloud IPs are often refused. */
+  apiKey?: string;
+  /** Called with a short reason (never the key) when the live price can't be fetched. */
+  onError?: (reason: string) => void;
 }
 
 export const COINGECKO_URL = `https://api.coingecko.com/api/v3/simple/price?ids=zcash&vs_currencies=${CURRENCY_CODES.map((c) => c.toLowerCase()).join(",")}`;
@@ -72,16 +77,17 @@ export class PriceService {
     try {
       const res = await this.fetcher(COINGECKO_URL, {
         signal: AbortSignal.timeout(this.opts.timeoutMs ?? 3000),
-        headers: { accept: "application/json" },
+        headers: { accept: "application/json", ...(this.opts.apiKey ? { "x-cg-demo-api-key": this.opts.apiKey } : {}) },
       });
-      if (!res.ok) throw new Error("price fetch failed");
+      if (!res.ok) throw new Error(`CoinGecko answered HTTP ${res.status ?? "error"}`);
       const data = CoinGeckoResponse.parse(await res.json()).zcash as Record<string, number | undefined>;
       const live = Object.fromEntries(CURRENCY_CODES.map((c) => [c, data[c.toLowerCase()]])) as Partial<Record<CurrencyCode, number>>;
       const quote = this.quote(live);
       const anyLive = CURRENCY_CODES.some((c) => quote.sources[c] === "coingecko");
       this.cached = { quote, expiresAt: nowMs + (anyLive ? (this.opts.ttlMs ?? 5 * 60_000) : (this.opts.failureTtlMs ?? 60_000)) };
       return quote;
-    } catch {
+    } catch (err) {
+      this.opts.onError?.((err as Error)?.message ?? "unknown error");
       const quote = this.quote({});
       this.cached = { quote, expiresAt: nowMs + (this.opts.failureTtlMs ?? 60_000) };
       return quote;

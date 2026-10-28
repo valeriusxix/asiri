@@ -14,9 +14,20 @@
 4. Click **Apply**. The first build takes a few minutes. The service is then live at `https://asiri.onrender.com`, or at `https://asiri-xxxx.onrender.com` if that name is taken.
 5. Set the fallback prices (see the next section).
 
+## Live prices: add a CoinGecko key
+
+The app asks CoinGecko for the ZEC rate. On Render, the keyless CoinGecko API refused every request on the first deploy (28 October 2026), and every currency fell back to the fixed placeholders. Render's outbound IPs are shared, which is the likely reason.
+
+To fix it:
+1. Create a free Demo API key at [coingecko.com/en/api](https://www.coingecko.com/en/api).
+2. Add it as `COINGECKO_API_KEY` under the service's **Environment** tab. The service redeploys.
+3. Open `https://<your-url>/api/price`. Every `sources` entry should say `coingecko`.
+
+While the live price is unavailable, the logs show `live ZEC price unavailable, using the FIXED_ZEC_* rates` with the reason, such as `CoinGecko answered HTTP 429`. The key itself is never logged.
+
 ## Set the fallback prices
 
-The app asks CoinGecko for the ZEC rate. If CoinGecko can't be reached, or rate-limits Render's servers, it falls back to `FIXED_ZEC_NGN`, `FIXED_ZEC_USD`, `FIXED_ZEC_GBP` and `FIXED_ZEC_CAD`. Their defaults are **placeholders, not market prices** (1,000,000 and 1,000).
+If CoinGecko still can't be reached, the app uses `FIXED_ZEC_NGN`, `FIXED_ZEC_USD`, `FIXED_ZEC_GBP` and `FIXED_ZEC_CAD`. Their defaults are **placeholders, not market prices** (1,000,000 and 1,000).
 
 - Before a demo, set all four under the service's **Environment** tab to that day's rates.
 - They aren't in `render.yaml` on purpose: values in the Blueprint would overwrite your Dashboard edits on every sync.

@@ -95,6 +95,11 @@ export type Env = z.output<typeof EnvSchema>;
 
 /** Parse and validate env. Throws an Error listing every problem (never echoing values). */
 export function parseEnv(source: Record<string, string | undefined>): Env {
+  // On Render, claim links default to the service's own https://<name>.onrender.com URL (RENDER_EXTERNAL_URL).
+  // An explicit PUBLIC_WEB_URL, such as a custom domain, still wins.
+  if (!source.PUBLIC_WEB_URL?.trim() && source.RENDER_EXTERNAL_URL?.trim()) {
+    source = { ...source, PUBLIC_WEB_URL: source.RENDER_EXTERNAL_URL };
+  }
   const result = EnvSchema.safeParse(source);
   if (!result.success) {
     const lines = result.error.issues.map((i) => `  - ${i.path.join(".") || "(root)"}: ${i.message}`);

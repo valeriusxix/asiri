@@ -1,5 +1,6 @@
 // npm run seed:demo             (mock mode only; refuses to touch a database that already has data)
 // npm run seed:demo -- --reset  (wipes the demo database first)
+// node apps/api/dist/seed.js --if-empty  (seeds only an empty database, otherwise exits 0: the Render start script)
 // Creates six weeks of mock donations, ~12 claimed payouts, 2 active links, 1 expired link and one
 // published report, so the transparency page looks alive (Agent.md M5). Never prints links or PINs.
 
@@ -19,6 +20,11 @@ if (env.ZCASH_MODE !== "mock") {
 }
 
 const db = openDb(env.DATABASE_PATH);
+if (hasData(db) && process.argv.includes("--if-empty")) {
+  console.log("The database already has data, so the demo seed was skipped.");
+  db.close();
+  process.exit(0);
+}
 if (hasData(db)) {
   if (!process.argv.includes("--reset")) {
     console.error(`The database at ${env.DATABASE_PATH} already has data. Run: npm run seed:demo -- --reset`);

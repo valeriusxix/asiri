@@ -130,6 +130,10 @@ docker run -p 8787:8787 -v asiri-data:/app/data --env-file .env asiri
 - To try the image on your own machine over `http://localhost`, add `-e NODE_ENV=development` to `docker run`, so login works without HTTPS.
 - The Dockerfile has not been built on the development machine, which has no Docker. The Rust stage follows zingolib's documented build steps, and the Node stage runs the same commands as above.
 
+## Deploy on Render
+
+`render.yaml` deploys the public demo as one free web service: mock treasury, `DEMO_MODE` on, live rates, seeded demo data. In the Render Dashboard, click **New > Blueprint**, pick this repo, and enter `ADMIN_EMAIL` and `ADMIN_PASSWORD`. Claim links use the service's `onrender.com` URL. On the free plan the service sleeps after 15 minutes idle and reseeds on every restart. [docs/DEPLOY_RENDER.md](docs/DEPLOY_RENDER.md) has the steps, the checks after a deploy, the fallback prices to set, and how to keep data on a paid plan with a disk.
+
 ## Architecture
 
 ```

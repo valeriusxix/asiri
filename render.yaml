@@ -1,0 +1,50 @@
+# Render Blueprint for Asiri: one web service, the API and the built web app on one port (docs/DEPLOY_RENDER.md).
+# It runs the public demo: mock treasury, DEMO_MODE on, live CoinGecko rates, seeded with demo data on an empty
+# database. In the Render Dashboard: New > Blueprint, pick this repo, then enter ADMIN_EMAIL and ADMIN_PASSWORD.
+services:
+  - type: web
+    name: asiri
+    runtime: node
+    # Region can't be changed after creation. Others: oregon, ohio, virginia, singapore.
+    region: frankfurt
+    # Free: spins down after 15 minutes without traffic, and its filesystem is wiped on every restart, so the demo
+    # database is reseeded and any payouts created since are gone. For data that survives, use a paid plan with the
+    # disk below (docs/DEPLOY_RENDER.md, "Keeping data").
+    plan: free
+    branch: main
+    autoDeployTrigger: commit
+    # NODE_ENV=production would make npm skip the devDependencies that the build needs (TypeScript, Vite).
+    buildCommand: npm ci --include=dev && npm run build && npm prune --omit=dev
+    startCommand: bash scripts/render-start.sh
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DEMO_MODE
+        value: "true"
+      - key: SEED_DEMO_DATA
+        value: "true"
+      - key: ZCASH_MODE
+        value: mock
+      - key: ZCASH_NETWORK
+        value: testnet
+      - key: FUND_NAME
+        value: Community Relief Fund
+      - key: FUND_CURRENCY
+        value: USD
+      - key: PRICE_SOURCE
+        value: coingecko
+      # PUBLIC_WEB_URL is left out: claim links use RENDER_EXTERNAL_URL (https://<name>.onrender.com).
+      # Set it in the Dashboard only for a custom domain.
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+    # Paid plans only. To keep data across restarts and deploys, set plan: 0.5c-512mb (or larger), uncomment this,
+    # and set DATABASE_PATH=/var/data/asiri.db and TREASURY_DATA_DIR=/var/data/treasury above.
+    # disk:
+    #   name: asiri-data
+    #   mountPath: /var/data
+    #   sizeGB: 1

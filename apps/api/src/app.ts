@@ -68,6 +68,8 @@ export function createApp(deps: AppDeps): express.Express {
         fixed: fixedRates(env),
         fetcher: deps.fetcher,
         now,
+        apiKey: env.COINGECKO_API_KEY,
+        onError: (reason) => logger.warn({ reason }, "live ZEC price unavailable, using the FIXED_ZEC_* rates"),
       }),
   };
   const jobs = new Jobs(ctx);

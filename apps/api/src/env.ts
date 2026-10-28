@@ -64,6 +64,8 @@ export const EnvSchema = z
     /** The fund's main display currency (Section 6). Payouts can be in any supported currency. */
     FUND_CURRENCY: z.enum(CURRENCY_CODES).default("USD"),
     PRICE_SOURCE: z.enum(["coingecko", "fixed"]).default("coingecko"),
+    /** Optional CoinGecko Demo API key (free). Hosts such as Render share IPs that the keyless API often refuses. */
+    COINGECKO_API_KEY: optionalString,
     // Fallback ZEC prices, used when PRICE_SOURCE=fixed or the live price is unavailable. Placeholders, not market
     // prices: set them to the day's rates before a demo (D-038).
     FIXED_ZEC_NGN: z.coerce.number().positive().default(1_000_000),

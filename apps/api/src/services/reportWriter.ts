@@ -3,18 +3,25 @@ import type { Env } from "../env.js";
 import type { Logger } from "../lib/logger.js";
 import { templateReport, templateWriter, type ReportStats, type ReportWriter } from "./reports.js";
 
-/** Agent.md Section 12, verbatim. */
-export const REPORT_SYSTEM_PROMPT = `You write short, warm, factual updates for donors of a community relief fund.
+/** Agent.md Section 12, with the fund currency filled in. */
+export const reportSystemPrompt = (stats: Pick<ReportStats, "currencyName" | "currencySymbol">) => `You write short, warm, factual updates for donors of a community relief fund.
 Rules:
 - Use ONLY the numbers in the JSON you are given. Do not invent or estimate any figure.
 - Never guess or describe who the recipients are.
 - No crypto jargon. Say "donations" and "payments", not "transactions" or "ZEC".
-- Show naira amounts with the ₦ sign and thousands separators.
+- Show amounts in ${stats.currencyName} using ${stats.currencySymbol} and the formatting given.
 - 120 to 180 words, plain text, no headings, no bullet points.
 - End with one sentence inviting readers to verify the totals on the transparency page.`;
 
 const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
-const normalize = (n: string) => n.replace(/,/g, "").replace(/\.$/, "");
+/**
+ * One canonical form per figure, so "£1,250", "£1,250.00" and "1250" all match, in every supported currency's format
+ * (all four group with "," and use "." for decimals).
+ */
+const normalize = (n: string) => {
+  const plain = n.replace(/,/g, "").replace(/\.$/, "");
+  return plain.includes(".") ? plain.replace(/0+$/, "").replace(/\.$/, "") : plain;
+};
 
 /**
  * Every number that appears anywhere in the stats (amounts, counts, dates), comma-free. The ZEC rate is left out: the
@@ -28,7 +35,7 @@ export function allowedNumbers(stats: ReportStats): Set<string> {
     else if (Array.isArray(v)) v.forEach(visit);
     else if (v && typeof v === "object") Object.values(v).forEach(visit);
   };
-  const { rateZecNgn: _rate, ...rest } = stats;
+  const { rateZecFiat: _rate, ...rest } = stats;
   visit(rest);
   return allowed;
 }
@@ -43,7 +50,7 @@ export function unexpectedNumbers(text: string, stats: ReportStats): string[] {
 }
 
 /**
- * Figures that cannot be checked against the stats: percentages, scale words ("₦3 million", "₦1.5m") and numbers
+ * Figures that cannot be checked against the stats: percentages, scale words ("$3 million", "£1.5m") and numbers
  * above ten written as words ("forty-seven", "hundreds of"). Small number words (one to ten) are too common in plain
  * prose to reject, so the organizer's review before publishing stays the last check.
  */
@@ -85,7 +92,7 @@ export function createReportWriter(env: Env, logger: Logger, client?: MessagesCl
       const response = await anthropic.beta.messages.create({
         model: env.ANTHROPIC_MODEL,
         max_tokens: 600,
-        system: REPORT_SYSTEM_PROMPT,
+        system: reportSystemPrompt(stats),
         // A short factual paragraph; low effort keeps thinking from eating the 600-token budget.
         output_config: { effort: "low" },
         messages: [{ role: "user", content: `Write the update for this period:\n${JSON.stringify(stats, null, 2)}` }],

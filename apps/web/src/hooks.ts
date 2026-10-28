@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
+import { isCurrencyCode, type CurrencyCode } from "./currency";
 import type { Health } from "./types";
 
 let healthPromise: Promise<Health> | null = null;
@@ -69,4 +70,30 @@ export async function copyText(text: string): Promise<boolean> {
     document.body.removeChild(ta);
     return ok;
   }
+}
+
+const DISPLAY_KEY = "asiri:display-currency";
+
+/**
+ * The currency the viewer chose with the switcher, remembered in localStorage (a per-viewer convenience only), else
+ * the fund currency. Storage can be blocked or empty, so every access is guarded.
+ */
+export function useDisplayCurrency(fundCurrency: CurrencyCode | undefined): [CurrencyCode | undefined, (c: CurrencyCode) => void] {
+  const [chosen, setChosen] = useState<CurrencyCode | null>(() => {
+    try {
+      const v = window.localStorage.getItem(DISPLAY_KEY);
+      return isCurrencyCode(v) ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const choose = useCallback((c: CurrencyCode) => {
+    setChosen(c);
+    try {
+      window.localStorage.setItem(DISPLAY_KEY, c);
+    } catch {
+      // Not remembered: the choice still applies for this visit.
+    }
+  }, []);
+  return [chosen ?? fundCurrency, choose];
 }

@@ -1,5 +1,7 @@
 import { Router, type RequestHandler } from "express";
 import * as z from "zod";
+import { bankDetailsErrors } from "../lib/bankDetails.js";
+import type { CurrencyCode } from "../lib/currency.js";
 import { HttpError, parseBody } from "../lib/http.js";
 import type { AppContext } from "../services/context.js";
 import { openClaim, redeemClaim, unlockClaim } from "../services/payouts.js";
@@ -14,15 +16,23 @@ const claimToken = z.string().min(16).max(128);
 // Anything else never reaches zingo-cli, where it would be a command-line argument (audit L8).
 const zcashAddress = z.string().trim().min(10).max(1000).regex(/^[A-Za-z0-9]+$/, "Not a Zcash address");
 
+const bankField = z.string().trim().max(40);
+
 const OpenBody = z.object({ secret });
 const UnlockBody = z.object({ secret, pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits") });
 const RedeemBody = z.discriminatedUnion("method", [
   z.object({ claimToken, method: z.literal("zcash_address"), zcashAddress }),
+  // The fields each currency needs are checked against the payout's currency once the claim token is verified
+  // (lib/bankDetails.ts), so a request without the token learns nothing about the payout.
   z.object({
     claimToken,
     method: z.literal("cashout_demo"),
     bankName: z.string().trim().min(2).max(80),
-    accountNumber: z.string().regex(/^\d{10}$/, "Account number must be 10 digits (NUBAN)"),
+    accountNumber: bankField,
+    routingNumber: bankField.optional(),
+    sortCode: bankField.optional(),
+    institutionNumber: bankField.optional(),
+    transitNumber: bankField.optional(),
   }),
 ]);
 
@@ -50,11 +60,11 @@ export function claimRoutes(ctx: AppContext, limiter: RequestHandler): Router {
   r.post("/:id/redeem", async (req, res) => {
     const id = payoutId(req.params.id);
     const body = parseBody(RedeemBody, req.body);
-    // bankName / accountNumber are validated above and then dropped: never stored, logged or forwarded.
+    // Bank details are only checked (inside this closure) and then dropped: never stored, logged or forwarded.
     const input =
       body.method === "zcash_address"
         ? { claimToken: body.claimToken, method: body.method, zcashAddress: body.zcashAddress }
-        : { claimToken: body.claimToken, method: body.method };
+        : { claimToken: body.claimToken, method: body.method, bankDetailsErrors: (currency: CurrencyCode) => bankDetailsErrors(currency, body) };
     res.json(await redeemClaim(ctx, id, input));
   });
 

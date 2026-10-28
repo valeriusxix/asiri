@@ -1,12 +1,11 @@
 # Asiri
 
-> *àṣírí* (Yoruba): "secret, confidential".
-> **Private money you can send like a message.**
+> **Private money you can send like a message — anywhere.**
 
-Asiri lets a community fund (mutual aid, relief, legal defence, medical support) receive donations and pay people privately on Zcash, without anyone needing a wallet. Built for **ZECATHON** (Zcash privacy hackathon).
+Asiri lets a community fund receive donations and pay people privately on Zcash, without anyone needing a wallet. It is built for the funds where a visible list of names or balances puts people at risk: disaster relief, refugee and humanitarian aid, medical and legal defence funds, mutual aid networks, and freelancers and creators who become targets when their balances are public. Built for **ZECATHON** (Zcash privacy hackathon). The name comes from the Yoruba word for "secret".
 
 - **Donors** give shielded Zcash by QR or payment link. A simulated card and bank option exists for the demo.
-- **Organizers** create a payout in naira, and get a **claim link** plus a separate **6-digit PIN** to send over WhatsApp or SMS.
+- **Organizers** create a payout in **NGN, USD, GBP or CAD**, and get a **claim link** plus a separate **6-digit PIN** to send over WhatsApp or SMS.
 - **Recipients** open the link on any phone, enter the PIN, and choose **Cash out to my bank (demo)**, **Keep it for later**, or, under Advanced, **Send to a Zcash wallet**. There is no app, no sign-up, no seed phrase and no jargon.
 - **Anyone** can open the transparency page and see totals raised and paid out, payments by need, a weekly chart, a plain-language update written by Claude, and the fund's **viewing key**, so the numbers can be checked independently. No recipient is ever identified.
 
@@ -14,7 +13,7 @@ Asiri lets a community fund (mutual aid, relief, legal defence, medical support)
 
 ## Why Zcash
 
-In 2020, during #EndSARS, relief groups in Nigeria had their bank accounts frozen. Moving to Bitcoin stopped the freezing, but it put every donor and every recipient on a public ledger. In a crisis, a public list of who received money can become a list of who to target.
+Funds that support people at risk can lose their bank or payment accounts just when they are needed most. A public blockchain avoids the freeze, but it lets anyone trace every donor and every recipient. In a crisis, a public list of who received money can become a list of who to target. A visible balance can make an individual a target too.
 
 Shielded Zcash fixes both problems at once:
 
@@ -22,6 +21,15 @@ Shielded Zcash fixes both problems at once:
 - **Accountability:** a **unified full viewing key (UFVK)** lets the fund publish read-only access to its own treasury. Donors and auditors can confirm the totals without being able to spend, and without learning who the recipients are.
 
 Other chains offer one or the other. Asiri needs both.
+
+## Currencies
+
+ZEC is the settlement currency, and every stored amount is integer zatoshis. Fiat is only for choosing and showing amounts.
+
+- **Supported:** NGN, USD, GBP and CAD. More can be added from one config entry per app: `apps/api/src/lib/currency.ts`, mirrored in `apps/web/src/currency.ts` (the two apps deliberately share no package), plus a `FIXED_ZEC_<CODE>` fallback rate and the currency's bank-detail format in `apps/api/src/lib/bankDetails.ts`.
+- **Fund currency:** `FUND_CURRENCY` (default `USD`) is the main display currency. Organizers can make each payout in any supported currency, and the recipient sees it in that currency.
+- **Rates:** live from CoinGecko (all four in one request, cached 5 minutes), falling back per currency to `FIXED_ZEC_NGN`, `FIXED_ZEC_USD`, `FIXED_ZEC_GBP` and `FIXED_ZEC_CAD`. The values in `.env.example` are placeholders, not market prices: set them to the day's rates before a demo.
+- **Transparency:** totals stay canonical in ZEC. The page shows them in the fund currency, with a switcher for the other three, labelled "approx., at today's rate".
 
 ## Quick start (mock mode, about 5 minutes)
 
@@ -40,7 +48,7 @@ npm run dev                   # API on :8787, web on http://localhost:5173
 Open http://localhost:5173 and try:
 
 1. **Organizers** (in the footer, or go to `/admin`), then log in with `organizer@example.com` / `change-me-now` (from `.env`).
-2. **New payout**: ₦50,000, Medical. You get the link and the PIN, shown once.
+2. **New payout**: $50, Medical (or pick NGN, GBP or CAD). You get the link and the PIN, shown once.
 3. **Open claim page** (or open the link on your phone, see below), then enter the PIN and **Cash out to my bank**.
 4. Visit **Transparency** to see the payout counted, with no one identified.
 
@@ -65,7 +73,7 @@ npm run typecheck && npm test && npm run build
 
 ### Optional: AI-written updates
 
-Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number that is not in those totals (whatever its length), a figure that can't be checked against them (a percentage, "₦3 million"-style amounts, or numbers above ten written as words), or any crypto jargon. A program can't catch everything: small numbers written as words, or a made-up description of a recipient, would get through. So every report is a draft until the organizer reads it and clicks Publish. Without a key, the template is used everywhere.
+Set `ANTHROPIC_API_KEY` (and optionally `ANTHROPIC_MODEL`, default `claude-sonnet-5-5`) to have Claude write the donor updates. Claude only ever sees aggregate totals, never individual payouts. Its output is rejected, and the built-in template is used instead, if it contains any number that is not in those totals (whatever its length), a figure that can't be checked against them (a percentage, "$3 million"-style amounts, or numbers above ten written as words), or any crypto jargon. A program can't catch everything: small numbers written as words, or a made-up description of a recipient, would get through. So every report is a draft until the organizer reads it and clicks Publish. Without a key, the template is used everywhere.
 
 ## Testnet mode (verified end to end)
 
@@ -144,7 +152,7 @@ docker run -p 8787:8787 -v asiri-data:/app/data --env-file .env asiri
 
 - **npm workspaces:** `apps/api` (Express 5, zod 4, better-sqlite3, pino with redaction, helmet, express-rate-limit, cookie-session, @anthropic-ai/sdk) and `apps/web` (React 19, React Router, Tailwind CSS v4, qrcode.react, recharts). TypeScript strict throughout.
 - **One adapter interface, two implementations.** Everything above `zcash/` (payouts, donations, transparency, reports) is the same in mock and testnet mode. All wallet calls run through one mutex with timeouts. In zingo mode, slow reads are cached.
-- **Money is integer zatoshis** everywhere it is stored. Naira is fixed per payout at creation; everywhere else it is indicative, at the current rate.
+- **Money is integer zatoshis** everywhere it is stored. A payout's fiat amount and rate are fixed at creation, in its own currency; every other fiat figure is approximate, at the current rate.
 - **Custody (MVP, "Mode A"):** one shielded treasury wallet held by the server. A payout reserves funds, and the on-chain send happens only at claim time.
 
 ### How a claim link stays safe
@@ -172,9 +180,9 @@ The full product spec is [Agent.md](Agent.md). Every deviation from it is logged
 
 1. **Custodial treasury (MVP).** The server holds the fund's spending key. The roadmap is FROST threshold signing, so several organizers must approve every payout.
 2. **Bearer links.** Whoever has both the link and the PIN can claim. The mitigations are the PIN by a separate channel, attempt limits, expiry and cancel.
-3. **Cash-out is simulated.** Real naira or mobile-money off-ramps need a licensed partner. The optional `OFFRAMP_ZCASH_ADDRESS` shows where the funds would flow.
+3. **Cash-out is simulated in every currency.** The bank-detail forms (account number, routing number, sort code, institution and transit numbers) only check the format and discard the details. Real bank or mobile-money off-ramps need a licensed partner in each region. The optional `OFFRAMP_ZCASH_ADDRESS` shows where the funds would flow.
 4. **The server sees claim secrets at claim time** (Mode A). Mode B, a one-time wallet per link, would reduce what the server holds.
-5. **Naira figures are indicative.** A payout's naira amount is fixed at creation, and other figures use the current rate.
+5. **Fiat figures are indicative.** A payout's amount is fixed in its own currency at creation; other figures use the current rate, and the fixed fallback rates are only as good as the values you set.
 6. **Card and bank donations are simulated** in this version. They are labelled as such and never counted as money raised.
 7. **An uncertain send needs a manual check.** If the server dies mid-send, or a testnet send times out after it started, the payout stays `claiming` and is not reverted automatically, because the money may have gone out (DECISIONS D-014, D-028). There's no admin button yet to resolve it against the wallet.
 8. **Testnet sends are slow and occasionally stall** on the Nym mixnet (40 to 200 s per send). The live demo uses the mock treasury, and the testnet run is recorded in ZINGO_NOTES with its txids.
@@ -182,11 +190,12 @@ The full product spec is [Agent.md](Agent.md). Every deviation from it is logged
 ## Roadmap
 
 1. Admin tools for the real treasury: resolve `claiming` payouts against the wallet's transactions, and show sync health and mixnet status.
-2. Pidgin English toggle for recipient pages.
+2. More languages for recipient pages (planned: French, Spanish, Arabic and Nigerian Pidgin, among others).
 3. Mode B: fund a one-time wallet per link, so the server never holds a claimable secret.
 4. Cross-chain donations, swapping into shielded ZEC through an intents or swap provider.
 5. Multi-organizer approval with FROST threshold signing.
-6. A real off-ramp partner for naira and mobile-money cash-outs.
+6. Licensed off-ramp partners, region by region, for bank and mobile-money cash-outs.
+7. More currencies, added in the currency config.
 
 ## API walkthrough with curl (mock mode)
 
@@ -205,7 +214,7 @@ curl -s -c jar.txt -H 'Content-Type: application/json' \
 curl -s -b jar.txt -H 'Content-Type: application/json' -d '{"amountZat":200000000}' $B/dev/mock-donate   # fake 2 ZEC donation (organizer only)
 curl -s -b jar.txt -X POST $B/admin/sync                                                     # import it
 curl -s -b jar.txt -H 'Content-Type: application/json' \
-  -d '{"amountNgn":50000,"category":"medical"}' $B/admin/payouts        # -> { link, pin, whatsappUrl, ... }
+  -d '{"amount":40,"currency":"USD","category":"medical"}' $B/admin/payouts   # -> { link, pin, whatsappUrl, ... }
 # link = http://localhost:5173/c/<id>#<secret>
 curl -s -H 'Content-Type: application/json' -d '{"secret":"<secret>"}' $B/claims/<id>/open
 curl -s -H 'Content-Type: application/json' -d '{"secret":"<secret>","pin":"<pin>"}' $B/claims/<id>/unlock   # -> claimToken

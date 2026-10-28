@@ -1,5 +1,6 @@
 import type { DB } from "../db/db.js";
 import type { AppContext } from "./context.js";
+import type { CurrencyCode } from "../lib/currency.js";
 import type { Network } from "../zcash/adapter.js";
 
 export const VERIFY_HINT =
@@ -24,7 +25,8 @@ export interface Transparency {
   network: Network;
   /** "mock": the totals and the viewing key are placeholders, and the web app labels them Demo (audit H2). */
   mode: "mock" | "zingo";
-  currency: { zecNgn: number; source: string };
+  /** Totals are canonical in zat; the page shows them in this currency (switchable), converted with /api/price. */
+  fundCurrency: CurrencyCode;
   totals: {
     receivedZat: number;
     simulatedZat: number;
@@ -136,7 +138,6 @@ export function latestPublishedReport(db: DB): Transparency["latestReport"] {
 export async function getTransparency(ctx: AppContext): Promise<Transparency> {
   const { db, env } = ctx;
   const now = ctx.now();
-  const quote = await ctx.price.get();
   const all = periodTotals(db, "0000", "9999");
 
   const firstWeek = new Date(weekStartUtc(now).getTime() - 7 * 7 * DAY_MS);
@@ -152,7 +153,7 @@ export async function getTransparency(ctx: AppContext): Promise<Transparency> {
     fundName: env.FUND_NAME,
     network: env.ZCASH_NETWORK,
     mode: env.ZCASH_MODE,
-    currency: { zecNgn: quote.zecNgn, source: quote.source },
+    fundCurrency: env.FUND_CURRENCY,
     totals: {
       receivedZat: all.receivedZat,
       simulatedZat: all.simulatedZat,

@@ -6,7 +6,7 @@ import { axisTicks } from "../components/WeeklyChart";
 import { donate, transparencyCopy } from "../copy";
 import { ZcashCard } from "../pages/Donate";
 import { TransparencyBody } from "../pages/Transparency";
-import type { Fund, Transparency } from "../types";
+import type { Fund, Price, Transparency } from "../types";
 
 /** Visible text and attributes of a server-rendered element. */
 const render = (el: ReactElement) => renderToStaticMarkup(el).replaceAll("&#x27;", "'");
@@ -21,13 +21,14 @@ const fund = (mode: Fund["mode"]): Fund => ({
   paymentUri: "zcash:utest1qqqq",
   demoMode: true,
   mode,
+  fundCurrency: "USD",
 });
 
 const transparency = (mode: Transparency["mode"]): Transparency => ({
   fundName: "Test Relief Fund",
   network: "testnet",
   mode,
-  currency: { zecNgn: 1_600_000, source: "fixed" },
+  fundCurrency: "USD",
   totals: { receivedZat: 100_000_000, simulatedZat: 0, paidOutZat: 3_125_000, outstandingZat: 0, payoutsCount: 1, demoCashoutZat: 0, demoCashoutCount: 0 },
   byCategory: [{ category: "medical", count: 1, amountZat: 3_125_000 }],
   weekly: [],
@@ -36,6 +37,15 @@ const transparency = (mode: Transparency["mode"]): Transparency => ({
   verifyHint: "This is the fund's viewing key.",
   updatedAt: "2026-10-27T12:00:00.000Z",
 });
+
+// Test rates, not market prices: 1 ZEC = ₦1,600,000 = $1,000 = £800 = CA$1,400.
+const PRICE: Price = {
+  rates: { NGN: 1_600_000, USD: 1_000, GBP: 800, CAD: 1_400 },
+  sources: { NGN: "fixed", USD: "fixed", GBP: "fixed", CAD: "fixed" },
+  fundCurrency: "USD",
+  updatedAt: "2026-10-27T12:00:00.000Z",
+};
+const body = (data: Transparency, currency: keyof Price["rates"] = "USD") => <TransparencyBody data={data} price={PRICE} currency={currency} />;
 
 describe("mock-mode placeholders are labelled Demo (audit H2)", () => {
   it("donate: the mock QR code and address say they are placeholders", () => {
@@ -51,13 +61,13 @@ describe("mock-mode placeholders are labelled Demo (audit H2)", () => {
   });
 
   it("transparency: mock totals and the mock viewing key are labelled", () => {
-    const out = text(<TransparencyBody data={transparency("mock")} />);
+    const out = text(body(transparency("mock")));
     expect(out).toContain(transparencyCopy.mockBanner);
     expect(out).toContain(transparencyCopy.mockUfvk);
   });
 
   it("transparency: a real treasury shows no demo label", () => {
-    const out = text(<TransparencyBody data={transparency("zingo")} />);
+    const out = text(body(transparency("zingo")));
     expect(out).not.toContain(transparencyCopy.mockBanner);
     expect(out).not.toContain(transparencyCopy.mockUfvk);
     expect(out).not.toContain("Demo");
@@ -76,15 +86,15 @@ describe("demo cash-outs are labelled where they are counted (audit M1)", () => 
   it("shows the demo share of Paid out with a Demo badge", () => {
     const data = transparency("zingo");
     data.totals = { ...data.totals, paidOutZat: 6_250_000, payoutsCount: 2, demoCashoutZat: 3_125_000, demoCashoutCount: 1 };
-    const out = text(<TransparencyBody data={data} />);
+    const out = text(body(data));
     expect(out).toContain(transparencyCopy.demoCashouts);
     expect(out).toContain(transparencyCopy.demoCashoutsNote(1));
-    expect(out).toContain("₦50,000");
+    expect(out).toContain("$31.25"); // 3,125,000 zat at $1,000 per ZEC
     expect(out).toContain("Demo");
   });
 
   it("shows nothing extra when every payment was real", () => {
-    expect(text(<TransparencyBody data={transparency("zingo")} />)).not.toContain(transparencyCopy.demoCashouts);
+    expect(text(body(transparency("zingo")))).not.toContain(transparencyCopy.demoCashouts);
   });
 });
 
@@ -98,11 +108,11 @@ describe("the report card and chart don't look like they disagree with the total
       publishedAt: "2026-10-28T00:00:00.000Z",
       stats: {
         fundName: "Test Relief Fund", periodStart: "2026-09-28", periodEnd: "2026-10-28", periodLabel: "28 September 2026 to 28 October 2026",
-        periodDays: 30, rateZecNgn: 1_600_000, donationsReceived: "₦25,000", donationsCount: 1, simulatedDonations: "₦0",
-        paidOut: "₦10,000", paymentsCount: 1, demoCashouts: "₦0", demoCashoutsCount: 0, waitingToBeClaimed: "₦0", byCategory: [],
+        periodDays: 30, currency: "USD", currencyName: "US dollars", currencySymbol: "$", rateZecFiat: 1_000, donationsReceived: "$25.00", donationsCount: 1, simulatedDonations: "$0.00",
+        paidOut: "$10.00", paymentsCount: 1, demoCashouts: "$0.00", demoCashoutsCount: 0, waitingToBeClaimed: "$0.00", byCategory: [],
       },
     };
-    const out = text(<TransparencyBody data={data} />);
+    const out = text(body(data));
     for (const label of [transparencyCopy.periodRaised, transparencyCopy.periodPaidOut, transparencyCopy.periodPayments]) expect(out).toContain(label);
   });
 

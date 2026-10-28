@@ -1,7 +1,8 @@
 import { audit, type DB } from "../db/db.js";
 import { generatePin, hashPin, randomId, randomSecret, sha256Hex, verifyPin, verifySecret } from "../lib/crypto.js";
 import { HttpError } from "../lib/http.js";
-import { formatNgn, formatZec, ngnToZat } from "../lib/money.js";
+import { fiatMinorToZat, formatMoney, zatToFiatMinor, type CurrencyCode } from "../lib/currency.js";
+import { formatZec } from "../lib/money.js";
 import { ZcashError } from "../zcash/adapter.js";
 import type { AppContext } from "./context.js";
 
@@ -18,8 +19,13 @@ export interface PayoutRow {
   id: string;
   amount_zat: number;
   fee_buffer_zat: number;
+  /** Legacy (D-038): written for old readers, never read. */
   amount_ngn_at_creation: number;
   rate_zec_ngn: number;
+  currency: CurrencyCode;
+  /** The amount the organizer chose, in the payout currency's minor units (cents, pence, kobo). */
+  amount_fiat_minor: number;
+  rate_zec_fiat: number;
   category: Category;
   internal_note: string | null;
   status: PayoutStatus;
@@ -40,9 +46,10 @@ export interface AdminPayout {
   id: string;
   amountZat: number;
   feeBufferZat: number;
-  amountNgn: number;
-  rateZecNgn: number;
-  amountNgnDisplay: string;
+  currency: CurrencyCode;
+  amountFiatMinor: number;
+  rateZecFiat: number;
+  amountDisplay: string;
   amountZecDisplay: string;
   category: Category;
   internalNote: string | null;
@@ -60,9 +67,10 @@ export function toAdminPayout(r: PayoutRow): AdminPayout {
     id: r.id,
     amountZat: r.amount_zat,
     feeBufferZat: r.fee_buffer_zat,
-    amountNgn: r.amount_ngn_at_creation,
-    rateZecNgn: r.rate_zec_ngn,
-    amountNgnDisplay: formatNgn(r.amount_ngn_at_creation),
+    currency: r.currency,
+    amountFiatMinor: r.amount_fiat_minor,
+    rateZecFiat: r.rate_zec_fiat,
+    amountDisplay: formatMoney(r.amount_fiat_minor, r.currency),
     amountZecDisplay: formatZec(r.amount_zat, 8),
     category: r.category,
     internalNote: r.internal_note,
@@ -131,7 +139,9 @@ function balancesFrom(db: DB, spendableZat: number, pendingZat: number): Balance
 // ---------------------------------------------------------------------------
 
 export interface CreatePayoutInput {
-  amountNgn: number;
+  /** In the currency's minor units; the route checks the currency's limits. */
+  amountMinor: number;
+  currency: CurrencyCode;
   category: Category;
   internalNote?: string;
   expiresInDays?: number;
@@ -145,14 +155,15 @@ export interface CreatedPayout {
   smsUrl: string;
 }
 
-export function shareMessage(fundName: string, link: string): string {
-  return `Hi, you have received support from ${fundName}. Open this private link to receive it: ${link} . You will get a 6-digit PIN separately. Please do not share this link.`;
+export function shareMessage(fundName: string, amountDisplay: string, link: string): string {
+  return `Hi, you have received ${amountDisplay} in support from ${fundName}. Open this private link to receive it: ${link} . You will get a 6-digit PIN separately. Please do not share this link.`;
 }
 
 export async function createPayout(ctx: AppContext, input: CreatePayoutInput): Promise<CreatedPayout> {
   const { db, env } = ctx;
   const quote = await ctx.price.get();
-  const amountZat = ngnToZat(input.amountNgn, quote.zecNgn);
+  const rate = quote.rates[input.currency];
+  const amountZat = fiatMinorToZat(input.amountMinor, rate, input.currency);
   if (amountZat <= 0) throw new HttpError(400, "validation_error", { message: "Amount is too small" });
   const feeBuffer = env.FEE_BUFFER_ZAT;
   const wallet = await ctx.adapter.getBalance();
@@ -171,15 +182,19 @@ export async function createPayout(ctx: AppContext, input: CreatePayoutInput): P
     let id = randomId(10);
     while (db.prepare(`SELECT 1 FROM payouts WHERE id = ?`).get(id)) id = randomId(10);
     db.prepare(
-      `INSERT INTO payouts (id, amount_zat, fee_buffer_zat, amount_ngn_at_creation, rate_zec_ngn, category, internal_note,
-                            status, secret_hash, pin_hash, pin_attempts, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 0, ?, ?)`,
+      `INSERT INTO payouts (id, amount_zat, fee_buffer_zat, amount_ngn_at_creation, rate_zec_ngn, currency, amount_fiat_minor,
+                            rate_zec_fiat, category, internal_note, status, secret_hash, pin_hash, pin_attempts, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, 0, ?, ?)`,
     ).run(
       id,
       amountZat,
       feeBuffer,
-      input.amountNgn,
-      quote.zecNgn,
+      // Legacy NOT NULL columns: the naira equivalent at creation, kept for old readers only.
+      zatToFiatMinor(amountZat, quote.rates.NGN, "NGN") / 100,
+      quote.rates.NGN,
+      input.currency,
+      input.amountMinor,
+      rate,
       input.category,
       note,
       sha256Hex(secret),
@@ -187,13 +202,13 @@ export async function createPayout(ctx: AppContext, input: CreatePayoutInput): P
       now.toISOString(),
       expiresAt.toISOString(),
     );
-    audit(db, "payout.created", { id, amountZat, category: input.category }, now);
+    audit(db, "payout.created", { id, amountZat, currency: input.currency, category: input.category }, now);
     return getRow(db, id)!;
   });
   const row = insert();
 
   const link = `${env.PUBLIC_WEB_URL}/c/${row.id}#${secret}`;
-  const message = encodeURIComponent(shareMessage(env.FUND_NAME, link));
+  const message = encodeURIComponent(shareMessage(env.FUND_NAME, formatMoney(row.amount_fiat_minor, row.currency), link));
   return {
     payout: toAdminPayout(row),
     link,
@@ -296,7 +311,9 @@ function assertClaimable(row: PayoutRow, forRedeem: boolean): void {
 export interface UnlockResult {
   amountZat: number;
   amountZecDisplay: string;
-  amountNgnDisplay: string;
+  currency: CurrencyCode;
+  /** In the payout's own currency; the recipient never chooses one. */
+  amountDisplay: string;
   expiresAt: string;
   claimToken: string;
 }
@@ -333,7 +350,8 @@ export async function unlockClaim(ctx: AppContext, id: string, secret: string, p
   return {
     amountZat: row.amount_zat,
     amountZecDisplay: formatZec(row.amount_zat, 8),
-    amountNgnDisplay: formatNgn(row.amount_ngn_at_creation),
+    currency: row.currency,
+    amountDisplay: formatMoney(row.amount_fiat_minor, row.currency),
     expiresAt: row.expires_at,
     claimToken,
   };
@@ -354,7 +372,11 @@ export interface RedeemResult {
 export async function redeemClaim(
   ctx: AppContext,
   id: string,
-  input: { claimToken: string } & ({ method: "zcash_address"; zcashAddress: string } | { method: "cashout_demo" }),
+  input: { claimToken: string } & (
+    | { method: "zcash_address"; zcashAddress: string }
+    /** Checks the (route-held) bank details against the payout currency's format; the details never reach here. */
+    | { method: "cashout_demo"; bankDetailsErrors: (currency: CurrencyCode) => Record<string, string[]> | null }
+  ),
 ): Promise<RedeemResult> {
   const { db, env, adapter } = ctx;
   // Only the holder of this payout's claim token learns anything about it (audit L1). The id alone is in the URL path,
@@ -371,6 +393,8 @@ export async function redeemClaim(
     destination = input.zcashAddress;
   } else {
     if (!env.DEMO_MODE) throw new HttpError(400, "method_not_available");
+    const fieldErrors = input.bankDetailsErrors(row.currency);
+    if (fieldErrors) throw new HttpError(400, "validation_error", { details: { formErrors: [], fieldErrors } });
     destination = env.OFFRAMP_ZCASH_ADDRESS;
   }
 

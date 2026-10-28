@@ -8,7 +8,8 @@ import { claim as t, claimAdvanced as adv } from "../copy";
 import { rememberClaimed, tabStorage, wasClaimedHere } from "../claimMemory";
 import { formatDateFriendly } from "../format";
 import { useHealth } from "../hooks";
-import type { ClaimRedeem, ClaimUnlock } from "../types";
+import { BANK_FIELDS, bankFieldValid, type BankField } from "../currency";
+import type { CashoutDetails, ClaimRedeem, ClaimUnlock } from "../types";
 
 type Terminal = "claimed" | "expired" | "cancelled" | "locked" | "pending_funds" | "network_error" | "busy";
 
@@ -193,9 +194,9 @@ export function Claim() {
           <CashoutStep
             unlocked={unlocked}
             onBack={() => setState({ kind: "reveal" })}
-            onSubmit={async (bankName, accountNumber) => {
+            onSubmit={async (details) => {
               try {
-                finish(await api.claims.redeemCashout(id, unlocked.claimToken, bankName, accountNumber));
+                finish(await api.claims.redeemCashout(id, unlocked.claimToken, details));
                 return null;
               } catch (err) {
                 return redeemError(err);
@@ -371,7 +372,7 @@ function AmountHero({ unlocked, fundName }: { unlocked: ClaimUnlock; fundName: s
   return (
     <div className="rounded-3xl bg-ink px-5 py-8 text-center text-white">
       <p className="text-[2.5rem] font-extrabold leading-none tracking-tight sm:text-5xl">
-        <span className="text-gold">{unlocked.amountNgnDisplay}</span> {t.isYours}
+        <span className="text-gold">{unlocked.amountDisplay}</span> {t.isYours}
       </p>
       <p className="mt-3 text-lg text-white/75">{t.from(fundName)}</p>
       <p className="mx-auto mt-5 max-w-xs rounded-2xl bg-white/10 px-3.5 py-1.5 text-[15px] text-white/80">
@@ -418,10 +419,15 @@ function StepHeader({ title, amount, onBack, badge }: { title: string; amount: s
   );
 }
 
-function CashoutStep({ unlocked, onBack, onSubmit }: { unlocked: ClaimUnlock; onBack: () => void; onSubmit: (bank: string, account: string) => Promise<string | null> }) {
+/**
+ * Demo cash-out form for the payout's currency: a free-text bank name, then the details that currency's banks use
+ * (BANK_FIELDS). They are checked here and by the API, then discarded.
+ */
+export function CashoutStep({ unlocked, onBack, onSubmit }: { unlocked: ClaimUnlock; onBack: () => void; onSubmit: (details: CashoutDetails) => Promise<string | null> }) {
+  const fields = BANK_FIELDS[unlocked.currency];
   const [bank, setBank] = useState("");
-  const [account, setAccount] = useState("");
-  const [errors, setErrors] = useState<{ bank?: string; account?: string; form?: string }>({});
+  const [values, setValues] = useState<Partial<Record<BankField, string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<BankField | "bank" | "form", string>>>({});
   const [busy, setBusy] = useState(false);
 
   return (
@@ -429,42 +435,47 @@ function CashoutStep({ unlocked, onBack, onSubmit }: { unlocked: ClaimUnlock; on
       noValidate
       onSubmit={async (e) => {
         e.preventDefault();
-        const next = { bank: bank ? undefined : t.bankRequired, account: /^\d{10}$/.test(account) ? undefined : t.accountInvalid };
+        const next: typeof errors = {};
+        if (bank.trim().length < 2) next.bank = t.bankRequired;
+        for (const f of fields) {
+          if (!bankFieldValid(values[f.field] ?? "", f)) next[f.field] = t.fieldInvalid(t.bankFields[f.field], t.digits(f.min, f.max));
+        }
         setErrors(next);
-        if (next.bank || next.account) return;
+        if (Object.keys(next).length) return;
         setBusy(true);
-        const error = await onSubmit(bank, account);
+        const details: CashoutDetails = { bankName: bank.trim(), accountNumber: "" };
+        for (const f of fields) details[f.field] = (values[f.field] ?? "").replace(/[\s-]/g, "");
+        const error = await onSubmit(details);
         setBusy(false);
         if (error) setErrors({ form: error });
       }}
     >
-      <StepHeader title={t.cashoutTitle} amount={unlocked.amountNgnDisplay} onBack={onBack} badge={<DemoBadge />} />
+      <StepHeader title={t.cashoutTitle} amount={unlocked.amountDisplay} onBack={onBack} badge={<DemoBadge />} />
       <div className="space-y-5">
         <Field label={t.bankLabel} htmlFor="bank" error={errors.bank}>
-          <select id="bank" value={bank} onChange={(e) => setBank(e.target.value)} className={`${inputClass} appearance-none`} aria-invalid={!!errors.bank || undefined}>
-            <option value="">{t.chooseBank}</option>
-            {t.banks.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-            <option value={t.otherBank}>{t.otherBank}</option>
-          </select>
-        </Field>
-        <Field label={t.accountLabel} htmlFor="account" help={t.accountHelp} error={errors.account}>
           <input
-            id="account"
-            value={account}
-            onChange={(e) => setAccount(e.target.value.replace(/\D/g, "").slice(0, 10))}
-            inputMode="numeric"
+            id="bank"
+            value={bank}
+            onChange={(e) => setBank(e.target.value.slice(0, 80))}
             autoComplete="off"
-            pattern="[0-9]*"
-            maxLength={10}
-            placeholder="0123456789"
-            className={`${inputClass} text-lg tracking-widest tabular-nums`}
-            aria-invalid={!!errors.account || undefined}
+            placeholder={t.bankPlaceholder}
+            className={inputClass}
+            aria-invalid={!!errors.bank || undefined}
           />
         </Field>
+        {fields.map((f) => (
+          <Field key={f.field} label={t.bankFields[f.field]} htmlFor={f.field} help={t.digits(f.min, f.max)} error={errors[f.field]}>
+            <input
+              id={f.field}
+              value={values[f.field] ?? ""}
+              onChange={(e) => setValues((v) => ({ ...v, [f.field]: e.target.value.replace(/[^\d\s-]/g, "").slice(0, f.max + 4) }))}
+              inputMode="numeric"
+              autoComplete="off"
+              className={`${inputClass} text-lg tracking-widest tabular-nums`}
+              aria-invalid={!!errors[f.field] || undefined}
+            />
+          </Field>
+        ))}
         {errors.form && <Alert>{errors.form}</Alert>}
         <Button type="submit" size="lg" block disabled={busy}>
           {busy ? (
@@ -505,7 +516,7 @@ function WalletStep({ unlocked, testnet, onBack, onSubmit }: { unlocked: ClaimUn
         setBusy(false);
       }}
     >
-      <StepHeader title={adv.title} amount={`${unlocked.amountNgnDisplay} · ${unlocked.amountZecDisplay}`} onBack={onBack} />
+      <StepHeader title={adv.title} amount={`${unlocked.amountDisplay} · ${unlocked.amountZecDisplay}`} onBack={onBack} />
       <div className="space-y-5">
         <Field label={adv.addressLabel} htmlFor="zaddr" help={testnet ? adv.testnetHint : undefined} error={error}>
           <textarea

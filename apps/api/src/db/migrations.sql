@@ -1,4 +1,6 @@
--- Asiri schema (Agent.md Section 7). Idempotent: run on every boot.
+-- Asiri base schema (Agent.md Section 7). Idempotent: run on every boot.
+-- Later columns (payouts.currency, amount_fiat_minor, rate_zec_fiat) are added by applyMigrations() in db.ts with
+-- ALTER TABLE ADD COLUMN, so existing databases are never rebuilt.
 
 CREATE TABLE IF NOT EXISTS donations (
   id            TEXT PRIMARY KEY,               -- uuid
@@ -13,8 +15,8 @@ CREATE TABLE IF NOT EXISTS payouts (
   id                       TEXT PRIMARY KEY,     -- 10-char url-safe random id
   amount_zat               INTEGER NOT NULL CHECK (amount_zat > 0),
   fee_buffer_zat           INTEGER NOT NULL,
-  amount_ngn_at_creation   INTEGER NOT NULL,     -- whole naira, display only
-  rate_zec_ngn             REAL NOT NULL,        -- rate used at creation (display only)
+  amount_ngn_at_creation   INTEGER NOT NULL,     -- legacy (D-038): naira equivalent, still written, no longer read
+  rate_zec_ngn             REAL NOT NULL,        -- legacy (D-038): still written, no longer read
   category                 TEXT NOT NULL CHECK (category IN ('medical','legal','food','transport','shelter','other')),
   internal_note            TEXT,                 -- organizer-only, never public, must not contain names
   status                   TEXT NOT NULL CHECK (status IN ('active','claiming','claimed','expired','cancelled','locked')),

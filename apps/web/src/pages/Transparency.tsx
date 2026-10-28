@@ -1,11 +1,13 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { api } from "../api";
+import { CurrencySwitcher } from "../components/CurrencySwitcher";
 import { PageTitle, PublicLayout } from "../components/Layout";
 import { Alert, Button, Card, CopyBox, DemoBadge, Icon, Spinner } from "../components/ui";
 import { categoryLabels, common, transparencyCopy as t } from "../copy";
-import { formatDate, formatNgn, formatZec, timeAgo, zatToNgn } from "../format";
-import { useAsync } from "../hooks";
-import type { Transparency as TransparencyData } from "../types";
+import { formatMoney, formatZatAs, toMinorRate, type CurrencyCode } from "../currency";
+import { formatDate, formatZec, timeAgo } from "../format";
+import { useAsync, useDisplayCurrency } from "../hooks";
+import type { Price, Transparency as TransparencyData } from "../types";
 
 // Start downloading the chart (recharts is the biggest chunk) as soon as this page's module loads,
 // in parallel with the data fetch, instead of waiting until the data arrives.
@@ -24,11 +26,12 @@ function ChartPlaceholder() {
 }
 
 export default function Transparency() {
-  const { data, error, loading, reload } = useAsync(() => api.transparency());
+  const { data, error, loading, reload } = useAsync(() => Promise.all([api.transparency(), api.price()]));
+  const [currency, setCurrency] = useDisplayCurrency(data?.[0].fundCurrency);
 
   return (
     <PublicLayout>
-      <PageTitle title={t.title} sub={data ? t.sub(data.fundName) : undefined} />
+      <PageTitle title={t.title} sub={data ? t.sub(data[0].fundName) : undefined} />
 
       {loading && !data && (
         <div className="flex justify-center py-16 text-black/50">
@@ -44,14 +47,30 @@ export default function Transparency() {
         </div>
       )}
 
-      {data && <TransparencyBody data={data} />}
+      {data && currency && <TransparencyBody data={data[0]} price={data[1]} currency={currency} onCurrency={setCurrency} />}
     </PublicLayout>
   );
 }
 
-/** The page body for one `/api/transparency` response. In mock mode every figure is a placeholder and says so (audit H2). */
-export function TransparencyBody({ data }: { data: TransparencyData }) {
+/**
+ * The page body for one `/api/transparency` response. Totals are canonical in ZEC; fiat figures are converted here at
+ * today's rate for the chosen currency, and labelled approximate. In mock mode every figure is a placeholder and says
+ * so (audit H2).
+ */
+export function TransparencyBody({
+  data,
+  price,
+  currency,
+  onCurrency = () => {},
+}: {
+  data: TransparencyData;
+  price: Price;
+  currency: CurrencyCode;
+  onCurrency?: (c: CurrencyCode) => void;
+}) {
   const mock = data.mode === "mock";
+  const rate = price.rates[currency];
+  const fiat = (zat: number) => formatZatAs(zat, rate, currency);
   return (
     <div className="space-y-5">
       {mock && (
@@ -60,10 +79,16 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
           <p>{t.mockBanner}</p>
         </div>
       )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-black/55">
+          {t.switcherLabel} <span className="font-semibold text-ink">{currency}</span> · {t.approxShort}
+        </p>
+        <CurrencySwitcher value={currency} onChange={onCurrency} label={t.switcherLabel} />
+      </div>
       <div className="grid grid-cols-2 gap-3">
-        <Stat label={t.raised} ngn={zatToNgn(data.totals.receivedZat, data.currency.zecNgn)} zat={data.totals.receivedZat} big badge={mock} />
-        <Stat label={t.paidOut} ngn={zatToNgn(data.totals.paidOutZat, data.currency.zecNgn)} zat={data.totals.paidOutZat} big />
-        <Stat label={t.waiting} ngn={zatToNgn(data.totals.outstandingZat, data.currency.zecNgn)} zat={data.totals.outstandingZat} />
+        <Stat label={t.raised} value={fiat(data.totals.receivedZat)} zat={data.totals.receivedZat} big badge={mock} />
+        <Stat label={t.paidOut} value={fiat(data.totals.paidOutZat)} zat={data.totals.paidOutZat} big />
+        <Stat label={t.waiting} value={fiat(data.totals.outstandingZat)} zat={data.totals.outstandingZat} />
         <Card className="p-4!">
           <p className="text-sm font-medium text-black/55">{t.helped}</p>
           <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">{data.totals.payoutsCount.toLocaleString("en-US")}</p>
@@ -74,7 +99,7 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-amber-50/70 px-4 py-3 ring-1 ring-inset ring-amber-200">
           <DemoBadge />
           <span className="text-[15px] text-black/70">{t.simulated}</span>
-          <span className="ml-auto text-[15px] font-semibold tabular-nums">{formatNgn(zatToNgn(data.totals.simulatedZat, data.currency.zecNgn))}</span>
+          <span className="ml-auto text-[15px] font-semibold tabular-nums">{fiat(data.totals.simulatedZat)}</span>
           <span className="w-full text-xs text-black/50">{t.simulatedNote}</span>
         </div>
       )}
@@ -83,14 +108,14 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-amber-50/70 px-4 py-3 ring-1 ring-inset ring-amber-200">
           <DemoBadge />
           <span className="text-[15px] text-black/70">{t.demoCashouts}</span>
-          <span className="ml-auto text-[15px] font-semibold tabular-nums">{formatNgn(zatToNgn(data.totals.demoCashoutZat, data.currency.zecNgn))}</span>
+          <span className="ml-auto text-[15px] font-semibold tabular-nums">{fiat(data.totals.demoCashoutZat)}</span>
           <span className="w-full text-xs text-black/50">{t.demoCashoutsNote(data.totals.demoCashoutCount)}</span>
         </div>
       )}
 
       <Card>
         <Suspense fallback={<ChartPlaceholder />}>
-          <WeeklyChart weekly={data.weekly} zecNgn={data.currency.zecNgn} />
+          <WeeklyChart weekly={data.weekly} rate={rate} currency={currency} />
         </Suspense>
       </Card>
 
@@ -112,7 +137,7 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
                 <tr key={c.category} className="border-t border-black/[0.06]">
                   <td className="py-2.5 font-medium">{categoryLabels[c.category] ?? c.category}</td>
                   <td className="py-2.5 text-right">{c.count}</td>
-                  <td className="py-2.5 text-right">{formatNgn(zatToNgn(c.amountZat, data.currency.zecNgn))}</td>
+                  <td className="py-2.5 text-right">{fiat(c.amountZat)}</td>
                 </tr>
               ))}
             </tbody>
@@ -156,20 +181,20 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
       </Card>
 
       <p className="text-center text-xs text-black/45">
-        {t.rateNote(formatNgn(data.currency.zecNgn), data.currency.source)} {t.updated(timeAgo(data.updatedAt))}
+        {t.approxNote(currency, formatMoney(toMinorRate(rate, currency), currency), price.sources[currency])} {t.updated(timeAgo(data.updatedAt))}
       </p>
     </div>
   );
 }
 
-function Stat({ label, ngn, zat, big, badge }: { label: string; ngn: number; zat: number; big?: boolean; badge?: boolean }): ReactNode {
+function Stat({ label, value, zat, big, badge }: { label: string; value: string; zat: number; big?: boolean; badge?: boolean }): ReactNode {
   return (
     <Card className="p-4!">
       <p className="flex items-center gap-1.5 text-sm font-medium text-black/55">
         {label}
         {badge && <DemoBadge />}
       </p>
-      <p className={`mt-1 font-bold tabular-nums tracking-tight ${big ? "text-[1.6rem] leading-tight" : "text-2xl"}`}>{formatNgn(ngn)}</p>
+      <p className={`mt-1 break-words font-bold tabular-nums tracking-tight ${big ? "text-[1.6rem] leading-tight" : "text-2xl"}`}>{value}</p>
       <p className="mt-0.5 text-xs tabular-nums text-black/45">{formatZec(zat)}</p>
     </Card>
   );

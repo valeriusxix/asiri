@@ -1,7 +1,7 @@
 # Agent.md — Asiri
 
-> **Asiri** (from Yoruba *àṣírí*, "secret / confidential")
-> *Private money you can send like a message.*
+> **Asiri** (the name is from the Yoruba word for "secret")
+> *Private money you can send like a message — anywhere.*
 >
 > Built for **ZECATHON** (Zcash privacy hackathon by zkSNARKs). Submission deadline: **28 October 2026**.
 > This file is the single source of truth for building the product. Read it fully before writing any code.
@@ -26,10 +26,12 @@
 
 ## 1. Product summary
 
-Asiri lets a community fund (mutual aid, relief, legal defence, medical support) **receive donations and pay people privately on Zcash, without anyone needing a wallet.**
+Asiri lets a community fund **receive donations and pay people privately on Zcash, without anyone needing a wallet.** It is for funds where a visible list of names or balances puts people at risk: disaster relief, refugee and humanitarian aid, medical and legal defence funds, mutual aid networks, and freelancers and creators who become targets when their balances are public. No single country is the centre of the product.
+
+**Currencies:** ZEC is the settlement currency and every stored amount is integer zatoshis. Fiat is only for choosing and showing amounts. Supported: **NGN, USD, GBP, CAD** (Section 6.1).
 
 - **Donors** send ZEC to the fund's shielded address (QR / payment link). A simulated card/bank option exists for the demo.
-- **Organizers** log in, create a payout in USD($), CAD or naira (₦), and get a **claim link + separate PIN** to send over WhatsApp or SMS.
+- **Organizers** log in, create a payout in NGN, USD, GBP or CAD (default: the fund currency), and get a **claim link + separate PIN** to send over WhatsApp or SMS.
 - **Recipients** open the link, enter the PIN, and choose **Cash out (demo)**, **Send to a Zcash wallet**, or **Keep for later**. No app, no seed phrase, no jargon.
 - **The public** sees a **transparency page**: totals raised, totals paid, payouts by category, an AI-written plain-language update, and the fund's **viewing key** so anyone can verify the numbers themselves. No recipient is ever identified.
 
@@ -42,7 +44,7 @@ Asiri lets a community fund (mutual aid, relief, legal defence, medical support)
 ### 2.1 Organizer
 1. Logs in (`/login`) with the admin email + password from env.
 2. Sees the dashboard: spendable balance, reserved for open links, available, donations, payouts.
-3. Clicks **New payout** → enters amount in ₦, category, optional internal note, expiry (days).
+3. Clicks **New payout** → picks a currency (default `FUND_CURRENCY`), enters an amount (up to 2 decimals, within that currency's limits), category, optional internal note, expiry (days).
 4. Gets the **claim link** and **6-digit PIN**, shown **once**.
 5. Taps **Send via WhatsApp** (prefilled message with the link, no PIN) and sends the PIN by a separate channel (call or SMS).
 6. Can cancel an unclaimed payout, unlock a locked one, generate and publish a donor report.
@@ -50,7 +52,7 @@ Asiri lets a community fund (mutual aid, relief, legal defence, medical support)
 ### 2.2 Recipient
 1. Opens `https://<host>/c/<payoutId>#<secret>` on their phone.
 2. Sees "You've received support from {fund name}" → enters PIN.
-3. Sees the amount (₦ big, ZEC small in the advanced section).
+3. Sees the amount in the payout's own currency, big (ZEC small, in the advanced section). The recipient never chooses a currency.
 4. Chooses:
    - **Cash out to bank (demo)** → enters bank name + account number (not stored) → success screen marked "Demo: no real bank transfer happens."
    - **Send to a Zcash wallet** (collapsed "Advanced" option) → pastes a Zcash address → real on-chain send → success screen with transaction ID.
@@ -141,7 +143,9 @@ asiri/
 │  │     │  └─ migrations.sql
 │  │     ├─ lib/
 │  │     │  ├─ crypto.ts          # secrets, hashing, PIN
-│  │     │  ├─ money.ts           # zat/ZEC/NGN helpers
+│  │     │  ├─ money.ts           # zat/ZEC helpers
+│  │     │  ├─ currency.ts        # supported fiat currencies, formatting, fiat <-> zat (single source of truth)
+│  │     │  ├─ bankDetails.ts     # demo cash-out formats per currency
 │  │     │  ├─ mutex.ts           # serialize wallet calls
 │  │     │  └─ logger.ts          # pino with redaction
 │  │     ├─ zcash/
@@ -177,6 +181,7 @@ asiri/
 │        ├─ api.ts                # typed fetch helpers (credentials: "include")
 │        ├─ types.ts              # mirrors API response shapes
 │        ├─ copy.ts               # all user-facing strings in one place
+│        ├─ currency.ts           # mirrors api lib/currency.ts + bankDetails formats (kept in sync by hand)
 │        ├─ components/           # Button, Card, Amount, PinInput, QR, Layout, DemoBadge
 │        └─ pages/
 │           ├─ Home.tsx
@@ -217,7 +222,8 @@ All read and validated in `apps/api/src/env.ts` with zod. Boot fails with a clea
 ```dotenv
 # App
 APP_NAME=Asiri
-FUND_NAME=Lagos Community Relief Fund
+FUND_NAME=Community Relief Fund
+FUND_CURRENCY=USD                          # main display currency: NGN | USD | GBP | CAD
 FUND_DESCRIPTION=Private, fast support for medical, legal and emergency needs.
 PORT=8787
 PUBLIC_WEB_URL=http://localhost:5173      # used to build claim links
@@ -249,8 +255,10 @@ CLAIM_TOKEN_TTL_MINUTES=15
 
 # Pricing
 PRICE_SOURCE=coingecko                     # coingecko | fixed
-FIXED_ZEC_NGN=60000                        # placeholder used when PRICE_SOURCE=fixed or the API fails; update before demo
-FIXED_ZEC_USD=40                           # placeholder; update before demo
+FIXED_ZEC_NGN=1000000                      # PLACEHOLDERS, not market prices: the price of 1 ZEC in each currency, used
+FIXED_ZEC_USD=1000                         #   when PRICE_SOURCE=fixed or when the live price for that currency is unavailable.
+FIXED_ZEC_GBP=1000                         #   Set all four to the day's rates before a demo.
+FIXED_ZEC_CAD=1000
 
 # AI reports (optional; template fallback if empty)
 ANTHROPIC_API_KEY=
@@ -258,6 +266,21 @@ ANTHROPIC_MODEL=claude-sonnet-5-5
 ```
 
 ---
+
+### 6.1 Currencies
+
+Defined once in `apps/api/src/lib/currency.ts` and mirrored in `apps/web/src/currency.ts`:
+
+| Code | Symbol | Locale | Minor units | Payout limits | Simulated donation limits |
+|---|---|---|---|---|---|
+| NGN | ₦ | en-NG | 2 | 500 – 5,000,000 | 100 – 10,000,000 |
+| USD | $ | en-US | 2 | 1 – 5,000 | 1 – 10,000 |
+| GBP | £ | en-GB | 2 | 1 – 5,000 | 1 – 10,000 |
+| CAD | CA$ | en-CA | 2 | 1 – 5,000 | 1 – 10,000 |
+
+- Formatting uses `Intl.NumberFormat` with the currency's locale and code. The symbol shown is the one above: Intl gives "$" for CAD in en-CA, so the formatter swaps in "CA$". NGN drops ".00" on whole amounts ("₦50,000"); the others keep it ("$50.00"). No currency symbol is hard-coded outside these definitions.
+- Amounts are entered with up to 2 decimals and handled as integer minor units. Fiat → zat: `round(minor / 100 / rate * 1e8)`.
+- To add a currency: an entry in both currency files, a `FIXED_ZEC_<CODE>` env var, and its bank-detail format.
 
 ## 7. Data model (SQLite)
 
@@ -277,8 +300,8 @@ CREATE TABLE IF NOT EXISTS payouts (
   id                       TEXT PRIMARY KEY,     -- 10-char url-safe random id
   amount_zat               INTEGER NOT NULL CHECK (amount_zat > 0),
   fee_buffer_zat           INTEGER NOT NULL,
-  amount_ngn_at_creation   INTEGER NOT NULL,     -- whole naira, display only
-  rate_zec_ngn             REAL NOT NULL,        -- rate used at creation (display only)
+  amount_ngn_at_creation   INTEGER NOT NULL,     -- legacy: naira equivalent at creation, still written, never read
+  rate_zec_ngn             REAL NOT NULL,        -- legacy: still written, never read
   category                 TEXT NOT NULL CHECK (category IN ('medical','legal','food','transport','shelter','other')),
   internal_note            TEXT,                 -- organizer-only, never public, must not contain names
   status                   TEXT NOT NULL CHECK (status IN ('active','claiming','claimed','expired','cancelled','locked')),
@@ -325,6 +348,16 @@ CREATE TABLE IF NOT EXISTS mock_ledger (        -- used only by MockAdapter
 );
 ```
 
+**Multi-currency payouts (migration, idempotent, run on every boot by `applyMigrations` in db.ts):** `ALTER TABLE payouts ADD COLUMN` (never a table rebuild) for each column that is missing:
+
+```sql
+currency           TEXT CHECK (currency IN ('NGN','USD','GBP','CAD')),
+amount_fiat_minor  INTEGER,   -- the amount the organizer chose, in the payout currency's minor units
+rate_zec_fiat      REAL       -- ZEC price in that currency at creation
+```
+
+Then `UPDATE payouts SET currency='NGN', amount_fiat_minor=amount_ngn_at_creation*100, rate_zec_fiat=rate_zec_ngn WHERE currency IS NULL`. New code reads only the new columns.
+
 ### Derived balances (used everywhere)
 
 ```
@@ -345,10 +378,10 @@ All routes are under `/api`. JSON in and out. Validate every body with zod; on f
 | Method | Path | Response |
 |---|---|---|
 | GET | `/api/health` | `{ ok: true, mode: "mock"\|"zingo", network }` |
-| GET | `/api/fund` | `{ name, description, network, receiveAddress, ufvk, paymentUri }` |
-| GET | `/api/price` | `{ zecNgn, zecUsd, source: "coingecko"\|"fixed", updatedAt }` (cache 5 min) |
+| GET | `/api/fund` | `{ name, description, network, receiveAddress, ufvk, paymentUri, fundCurrency }` |
+| GET | `/api/price` | `{ rates: { NGN, USD, GBP, CAD }, sources: { NGN: "coingecko"\|"fixed", … }, fundCurrency, updatedAt }`. One CoinGecko request (`vs_currencies=ngn,usd,gbp,cad`), cached 5 min; each currency falls back to its fixed rate on its own. |
 | GET | `/api/transparency` | see below |
-| POST | `/api/donations/simulate` | DEMO_MODE only. Body `{ amountNgn: int 100..10,000,000 }` → `{ donationId, amountZat }`; 404 when DEMO_MODE=false |
+| POST | `/api/donations/simulate` | DEMO_MODE only. Body `{ amount: number (≤ 2 decimals), currency?: code (default FUND_CURRENCY) }`, within the currency's donation limits → `{ donationId, amountZat }`; 404 when DEMO_MODE=false |
 
 `/api/transparency` response:
 
@@ -356,7 +389,7 @@ All routes are under `/api`. JSON in and out. Validate every body with zod; on f
 {
   fundName: string;
   network: "testnet" | "mainnet";
-  currency: { zecNgn: number; source: string };
+  fundCurrency: "NGN" | "USD" | "GBP" | "CAD"; // the page converts with /api/price; totals stay in zat
   totals: {
     receivedZat: number;        // zcash donations only
     simulatedZat: number;       // demo donations, shown separately
@@ -378,14 +411,14 @@ All routes are under `/api`. JSON in and out. Validate every body with zod; on f
 | Method | Path | Body | Response |
 |---|---|---|---|
 | POST | `/api/claims/:id/open` | `{ secret }` | `{ status: "available"\|"claimed"\|"expired"\|"cancelled"\|"locked", fundName }`. If the secret hash does not match or id is unknown → `404 { error: "not_found" }`. Never reveals amount. |
-| POST | `/api/claims/:id/unlock` | `{ secret, pin }` | Success: `{ amountZat, amountZecDisplay, amountNgnDisplay, expiresAt, claimToken }`. Wrong PIN: `401 { error: "wrong_pin", attemptsLeft }`. When attempts reach `PIN_MAX_ATTEMPTS` → status `locked`, `423 { error: "locked" }`. |
-| POST | `/api/claims/:id/redeem` | `{ claimToken, method: "zcash_address", zcashAddress }` or `{ claimToken, method: "cashout_demo", bankName, accountNumber }` | `{ status: "claimed", method, txid?: string, demo: boolean }` |
+| POST | `/api/claims/:id/unlock` | `{ secret, pin }` | Success: `{ amountZat, amountZecDisplay, currency, amountDisplay, expiresAt, claimToken }` (`amountDisplay` in the payout's own currency). Wrong PIN: `401 { error: "wrong_pin", attemptsLeft }`. When attempts reach `PIN_MAX_ATTEMPTS` → status `locked`, `423 { error: "locked" }`. |
+| POST | `/api/claims/:id/redeem` | `{ claimToken, method: "zcash_address", zcashAddress }` or `{ claimToken, method: "cashout_demo", bankName, accountNumber, routingNumber?, sortCode?, institutionNumber?, transitNumber? }` | `{ status: "claimed", method, txid?: string, demo: boolean }` |
 
 Rules:
 - `secret` is compared by `sha256(secret)` with `timingSafeEqual`.
 - `pin` is 6 digits; verified with scrypt + `timingSafeEqual`.
 - `claimToken` is 32 random bytes (base64url), stored as sha256, valid `CLAIM_TOKEN_TTL_MINUTES`.
-- `cashout_demo` is only allowed when `DEMO_MODE=true`. `bankName` and `accountNumber` are validated (account number = 10 digits, NUBAN format) and then **discarded**: never stored or logged. If `OFFRAMP_ZCASH_ADDRESS` is set, funds are really sent there (shows the realistic flow); otherwise no on-chain send happens and `demo: true`.
+- `cashout_demo` is only allowed when `DEMO_MODE=true`. The details are validated against the **payout currency's** format, after the claim token is verified, and then **discarded**: never stored or logged. Bank name is free text for every currency. NGN: 10-digit account number. USD: 9-digit routing number + 4–17-digit account number. GBP: 6-digit sort code + 8-digit account number. CAD: 3-digit institution + 5-digit transit + 7–12-digit account number. Spaces and dashes are ignored. If `OFFRAMP_ZCASH_ADDRESS` is set, funds are really sent there (shows the realistic flow); otherwise no on-chain send happens and `demo: true`.
 - `zcash_address` validates the address with the adapter for the configured network, then sends `amount_zat` with memo `"Asiri payout"`.
 
 ### 8.3 Auth
@@ -400,11 +433,11 @@ Rules:
 
 | Method | Path | Body / Response |
 |---|---|---|
-| GET | `/api/admin/overview` | `{ spendableZat, pendingZat, reservedZat, availableZat, lastSyncAt, lastSyncError, counts: { active, claimed, expired, cancelled, locked } }` |
+| GET | `/api/admin/overview` | `{ spendableZat, pendingZat, reservedZat, availableZat, lastSyncAt, lastSyncError, counts: { active, claimed, expired, cancelled, locked }, fundCurrency, rates }` |
 | POST | `/api/admin/sync` | triggers sync now → overview |
 | GET | `/api/admin/donations` | list, newest first (includes memo; admin only) |
 | GET | `/api/admin/payouts` | list, newest first, **never** includes secret/pin/hashes |
-| POST | `/api/admin/payouts` | `{ amountNgn: int 500..5,000,000, category, internalNote?: string ≤ 200, expiresInDays?: 1..30 }` → `{ payout, link, pin, whatsappUrl, smsUrl }`. `link`, `pin` are returned **only in this response**. 409 `{ error: "insufficient_funds", availableZat }` if not enough. |
+| POST | `/api/admin/payouts` | `{ amount: number (≤ 2 decimals, within the currency's payout limits), currency?: code (default FUND_CURRENCY), category, internalNote?: string ≤ 200, expiresInDays?: 1..30 }` → `{ payout, link, pin, whatsappUrl, smsUrl }`. `link`, `pin` are returned **only in this response**. 409 `{ error: "insufficient_funds", availableZat }` if not enough. |
 | POST | `/api/admin/payouts/:id/cancel` | only from `active` or `locked` |
 | POST | `/api/admin/payouts/:id/unlock` | `locked` → `active`, resets attempts |
 | POST | `/api/admin/reports/generate` | `{ periodDays: 1..90 }` → draft report |
@@ -538,7 +571,7 @@ active|locked ──now > expires_at (job)──► expired
 ```
 WhatsApp: https://wa.me/?text=<urlencoded message>
 SMS:      sms:?body=<urlencoded message>
-Message:  "Hi, you have received support from {FUND_NAME}. Open this private link to receive it: {link} . You will get a 6-digit PIN separately. Please do not share this link."
+Message:  "Hi, you have received {amount, formatted in the payout's currency} in support from {FUND_NAME}. Open this private link to receive it: {link} . You will get a 6-digit PIN separately. Please do not share this link."
 ```
 The PIN is **never** included.
 
@@ -576,10 +609,10 @@ Document clearly that the server briefly sees the seed during the sweep.
 **Donate `/donate`**
 - Tabs: "Zcash" | "Card or bank (demo)".
 - Zcash tab: QR of `paymentUri`, address in a monospace box with Copy, "Open in wallet" (`href=paymentUri`), and one line: "Your donation is private. Only the total is published."
-- Demo tab: amount in ₦, "Donate (demo)" → POST simulate → thank-you state with DemoBadge.
+- Demo tab: currency selector (default the fund currency) with that currency's limits, amount, "Donate (demo)" → POST simulate → thank-you state with DemoBadge.
 
 **Transparency `/transparency`**
-- Big numbers: Raised (₦ and ZEC), Paid out, Waiting to be claimed, People helped (claimed count).
+- Big numbers: Raised (fiat and ZEC), Paid out, Waiting to be claimed, People helped (claimed count). Fiat is shown in `FUND_CURRENCY`, with a small NGN/USD/GBP/CAD switcher that converts on the client using `/api/price`, labelled "approx., at today's rate". The viewer's choice is kept in localStorage (wrapped in try/catch). The admin overview has the same switcher.
 - Simulated donations shown on a separate line with DemoBadge, never added to "Raised".
 - Bar chart (recharts) of the last 8 weeks: received vs paid out.
 - Category table.
@@ -590,9 +623,9 @@ Document clearly that the server briefly sees the seed during the sweep.
 States: `loading` → `pin` → `reveal` → (`cashout` | `wallet` | `keep`) → `done`; terminal error states `not_found`, `claimed`, `expired`, `cancelled`, `locked`, `pending_funds`, `network_error`.
 - If the URL has no fragment → `not_found` state: "This link is incomplete. Ask the sender to send it again."
 - PIN input: 6 large boxes, numeric keyboard (`inputMode="numeric"`, `autoComplete="one-time-code"`), paste support.
-- Reveal: "₦50,000 is yours" (big), "from Lagos Community Relief Fund". Expiry date in plain words.
+- Reveal: "{amount} is yours" in the payout's currency (big), "from {FUND_NAME}". Expiry date in plain words.
 - Three option cards: "Cash out to my bank" (DemoBadge), "Keep it for later", and a collapsed "Advanced: send to a Zcash wallet".
-- Bank form: bank name (select of major Nigerian banks + "Other"), 10-digit account number. Note under the form: "Demo: no real bank transfer happens in this version."
+- Bank form, by payout currency (Section 8.2): free-text bank name plus that currency's fields. Note under the form: "Demo: no real bank transfer happens in this version."
 - Done: green check, "Done. Take care." For wallet sends, show the txid in a small monospace line with copy.
 - After done, call `history.replaceState(null, "", "/c/" + id)` to drop the secret from the address bar.
 
@@ -602,13 +635,13 @@ States: `loading` → `pin` → `reveal` → (`cashout` | `wallet` | `keep`) →
 
 All strings live in `src/copy.ts`. On the default claim path never use: *wallet, seed, blockchain, ZEC, shielded, address, crypto, token, transaction*. These words are allowed only inside the "Advanced: send to a Zcash wallet" section. Write in short, warm sentences. Reading level: a 12-year-old should understand every line.
 
-Optional (stretch): an English / Nigerian Pidgin toggle on the claim page, strings in `copy.ts`.
+Optional (stretch): a language toggle on the claim page, strings in `copy.ts`. Planned languages include French, Spanish, Arabic and Nigerian Pidgin, among others.
 
 ---
 
 ## 12. AI donor reports (`services/reports.ts`)
 
-- Input: **aggregates only** for the period: totals received, simulated, paid out, outstanding, count of claimed payouts, by-category counts/amounts, ZEC→NGN rate. No ids, no notes, no memos, no addresses.
+- Input: **aggregates only** for the period: totals received, simulated, paid out, outstanding, count of claimed payouts, by-category counts/amounts, all pre-formatted in the fund currency, plus that currency's name, symbol and ZEC rate. No ids, no notes, no memos, no addresses.
 - If `ANTHROPIC_API_KEY` is set, call the Messages API with `ANTHROPIC_MODEL`, `max_tokens: 600`.
 - System prompt:
 
@@ -618,7 +651,7 @@ Rules:
 - Use ONLY the numbers in the JSON you are given. Do not invent or estimate any figure.
 - Never guess or describe who the recipients are.
 - No crypto jargon. Say "donations" and "payments", not "transactions" or "ZEC".
-- Show naira amounts with the ₦ sign and thousands separators.
+- Show amounts in {currency name} using {symbol} and the formatting given.
 - 120 to 180 words, plain text, no headings, no bullet points.
 - End with one sentence inviting readers to verify the totals on the transparency page.
 ```
@@ -685,7 +718,7 @@ Rules:
 - ✅ Fresh clone → follow README → working demo in under 10 minutes in mock mode.
 
 ### M6 — Stretch (only if time remains)
-In order: Pidgin toggle → Mode B ephemeral links → cross-chain donation option (e.g., swap into shielded ZEC via an intents/swap provider) → multi-organizer approval (document FROST threshold signing as the target design).
+In order: language toggle (planned languages include French, Spanish, Arabic and Nigerian Pidgin) → Mode B ephemeral links → cross-chain donation option (e.g., swap into shielded ZEC via an intents/swap provider) → multi-organizer approval (document FROST threshold signing as the target design).
 
 ---
 
@@ -699,10 +732,10 @@ In order: Pidgin toggle → Mode B ephemeral links → cross-chain donation opti
 
 ## 16. Demo script (3 minutes, put in `docs/DEMO_SCRIPT.md`)
 
-1. **Story (20 s):** "In 2020, during #EndSARS, a Nigerian relief group's bank accounts were frozen. They moved to Bitcoin, which fixed the freezing, but made every donor and recipient traceable. Asiri fixes both."
+1. **Story (20 s):** "When a relief fund, a refugee-aid group or a legal defence fund needs money most, its bank or payment accounts can be frozen. A public blockchain avoids the freeze, but makes every donor and recipient traceable. Asiri fixes both, in whatever currency people use." (Describe the risk in general terms; cite a real event only if it is short, factual and checked, with examples from more than one region.)
 2. **Donate (25 s):** show `/donate`, scan with a testnet wallet, or use the pre-funded treasury.
-3. **Pay someone (40 s):** admin → New payout ₦50,000, Medical → show link + PIN → tap WhatsApp → message arrives on a phone.
-4. **Claim (40 s):** on the phone: open link → PIN → "₦50,000 is yours" → Cash out (demo) or send to a testnet wallet → Done. Point out: no app, no seed phrase, no jargon.
+3. **Pay someone (40 s):** admin → New payout £40 (GBP), Medical → show link + PIN → tap WhatsApp → message arrives on a phone.
+4. **Claim (40 s):** on the phone: open link → PIN → "£40.00 is yours" → Cash out (demo) or send to a testnet wallet → Done. Point out: no app, no seed phrase, no jargon.
 5. **Accountability (35 s):** `/transparency` updates; show the UFVK "verify it yourself"; read the AI update. "Donors see that money moved. Nobody sees who received it."
 6. **Close (20 s):** "Accountability without a hit list. Built on Zcash because only shielded money with viewing keys can do both."
 
@@ -725,9 +758,9 @@ In order: Pidgin toggle → Mode B ephemeral links → cross-chain donation opti
 
 1. **Custodial treasury (MVP):** the server holds the fund's spending key. Roadmap: FROST threshold signing so several organizers must approve every payout.
 2. **Bearer links:** whoever has both the link and the PIN can claim. Mitigations: PIN by a separate channel, attempt limits, expiry, cancel.
-3. **Cash-out is simulated.** Real naira/mobile-money off-ramps need a licensed partner. Optional `OFFRAMP_ZCASH_ADDRESS` shows where funds would flow.
+3. **Cash-out is simulated in every currency.** Real bank or mobile-money off-ramps need licensed partners in each region. Optional `OFFRAMP_ZCASH_ADDRESS` shows where funds would flow.
 4. **Server sees claim secrets at claim time** (Mode A). Mode B reduces what the server stores.
-5. **Price shown in ₦ is indicative**, fixed at payout creation.
+5. **Fiat prices are indicative.** A payout's amount is fixed in its own currency at creation; other fiat figures use the current (or fixed fallback) rate.
 6. Card/bank donations are simulated in this version.
 
 ---

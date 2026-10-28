@@ -109,15 +109,20 @@ describe("public routes", () => {
     expect((await request(h.app).get("/api/transparency")).body.mode).toBe("mock");
   });
 
-  it("GET /api/price returns the fixed rate", async () => {
+  it("GET /api/price returns all four rates, the source of each, and the fund currency", async () => {
     const h = setup();
     const res = await request(h.app).get("/api/price");
-    expect(res.body).toMatchObject({ zecNgn: 60_000, zecUsd: 40, source: "fixed" });
+    expect(res.body).toMatchObject({
+      rates: { NGN: 60_000, USD: 40, GBP: 32, CAD: 50 },
+      sources: { NGN: "fixed", USD: "fixed", GBP: "fixed", CAD: "fixed" },
+      fundCurrency: "NGN",
+    });
+    expect(typeof res.body.updatedAt).toBe("string");
   });
 
   it("simulated donations are 404 when DEMO_MODE=false", async () => {
     const h = setup({ DEMO_MODE: "false" });
-    expect((await request(h.app).post("/api/donations/simulate").send({ amountNgn: 1000 })).status).toBe(404);
+    expect((await request(h.app).post("/api/donations/simulate").send({ amount: 1000 })).status).toBe(404);
   });
 
   it("mock-donate needs the organizer session and caps the amount (audit H3)", async () => {
@@ -143,10 +148,10 @@ describe("public routes", () => {
     const badJson = await request(h.app).post("/api/donations/simulate").set("content-type", "application/json").send("{nope");
     expect(badJson.status).toBe(400);
     expect(badJson.body.error).toBe("validation_error");
-    const badBody = await request(h.app).post("/api/donations/simulate").send({ amountNgn: 5 });
+    const badBody = await request(h.app).post("/api/donations/simulate").send({ amount: 5 });
     expect(badBody.status).toBe(400);
     expect(badBody.body.error).toBe("validation_error");
-    expect(badBody.body.details.fieldErrors.amountNgn).toBeDefined();
+    expect(badBody.body.details.fieldErrors.amount).toEqual(["Amount must be between ₦100 and ₦10,000,000"]);
   });
 });
 
@@ -154,14 +159,14 @@ describe("transparency", () => {
   it("excludes simulated donations from receivedZat and counts claimed payouts", async () => {
     const h = setup();
     await h.fund(3 * ONE_ZEC);
-    const sim = await request(h.app).post("/api/donations/simulate").send({ amountNgn: 60_000 });
+    const sim = await request(h.app).post("/api/donations/simulate").send({ amount: 60_000 });
     expect(sim.status).toBe(200);
     expect(sim.body.amountZat).toBe(ONE_ZEC);
 
-    const p1 = await createPayout(h, { amountNgn: 30_000, category: "medical" });
+    const p1 = await createPayout(h, { amount: 30_000, category: "medical" });
     const t1 = (await request(h.app).post(`/api/claims/${p1.id}/unlock`).send({ secret: p1.secret, pin: p1.pin })).body.claimToken;
     await request(h.app).post(`/api/claims/${p1.id}/redeem`).send({ claimToken: t1, method: "zcash_address", zcashAddress: TESTNET_ADDRESS }).expect(200);
-    await createPayout(h, { amountNgn: 6_000, category: "food" }); // open, not claimed
+    await createPayout(h, { amount: 6_000, category: "food" }); // open, not claimed
 
     const res = await request(h.app).get("/api/transparency");
     expect(res.status).toBe(200);
@@ -179,7 +184,7 @@ describe("transparency", () => {
     expect(res.body.weekly[7]).toEqual({ weekStart: "2026-10-19", receivedZat: 3 * ONE_ZEC, paidOutZat: 50_000_000 });
     expect(res.body.ufvk).toMatch(/^uviewtest1mock/);
     expect(res.body.verifyHint).toContain("viewing key");
-    expect(res.body.currency).toEqual({ zecNgn: 60_000, source: "fixed" });
+    expect(res.body.fundCurrency).toBe("NGN");
     expect(res.body.latestReport).toBeNull();
 
     // Nothing that could identify a recipient is public.
@@ -195,8 +200,8 @@ describe("transparency", () => {
       const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
       await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, ...body }).expect(200);
     };
-    await claim(await createPayout(h, { amountNgn: 30_000, category: "medical" }), { method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" });
-    await claim(await createPayout(h, { amountNgn: 6_000, category: "food" }), { method: "zcash_address", zcashAddress: TESTNET_ADDRESS });
+    await claim(await createPayout(h, { amount: 30_000, category: "medical" }), { method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" });
+    await claim(await createPayout(h, { amount: 6_000, category: "food" }), { method: "zcash_address", zcashAddress: TESTNET_ADDRESS });
 
     const { totals } = (await request(h.app).get("/api/transparency")).body;
     expect(totals).toMatchObject({ paidOutZat: 60_000_000, payoutsCount: 2, demoCashoutZat: 50_000_000, demoCashoutCount: 1 });
@@ -210,7 +215,7 @@ describe("transparency", () => {
   it("a cash-out sent to OFFRAMP_ZCASH_ADDRESS moved real money, so it is not a demo cash-out", async () => {
     const h = setup({ OFFRAMP_ZCASH_ADDRESS: TESTNET_ADDRESS });
     await h.fund(3 * ONE_ZEC);
-    const p = await createPayout(h, { amountNgn: 30_000, category: "medical" });
+    const p = await createPayout(h, { amount: 30_000, category: "medical" });
     const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
     await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" }).expect(200);
     expect((await request(h.app).get("/api/transparency")).body.totals).toMatchObject({ payoutsCount: 1, demoCashoutCount: 0, demoCashoutZat: 0 });
@@ -224,7 +229,7 @@ describe("transparency", () => {
     const agent = await h.admin();
     const list = (await agent.get("/api/admin/donations")).body;
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ source: "zcash", amountZat: ONE_ZEC, memo: "for the clinic", amountNgnDisplay: "₦60,000" });
+    expect(list[0]).toMatchObject({ source: "zcash", amountZat: ONE_ZEC, memo: "for the clinic", amountDisplay: "₦60,000" });
     expect(JSON.stringify((await request(h.app).get("/api/transparency")).body)).not.toContain("clinic");
   });
 });
@@ -264,25 +269,34 @@ describe("admin sync", () => {
 });
 
 describe("price service", () => {
+  // Test numbers, not market prices.
+  const FIXED = { NGN: 60_000, USD: 40, GBP: 32, CAD: 50 };
+  const LIVE = { ngn: 71_234.5, usd: 45.6, gbp: 36.1, cad: 62.75 };
   const ok: Fetcher = async (url) => {
     expect(url).toBe(COINGECKO_URL);
-    return { ok: true, json: async () => ({ zcash: { ngn: 71_234.5, usd: 45.6 } }) };
+    return { ok: true, json: async () => ({ zcash: LIVE }) };
   };
+
+  it("asks CoinGecko for all four currencies in one request", () => {
+    expect(COINGECKO_URL).toBe("https://api.coingecko.com/api/v3/simple/price?ids=zcash&vs_currencies=ngn,usd,gbp,cad");
+  });
 
   it("uses CoinGecko and caches for 5 minutes", async () => {
     let t = 0;
     let calls = 0;
     const svc = new PriceService({
       source: "coingecko",
-      fixedZecNgn: 1,
-      fixedZecUsd: 1,
+      fixed: FIXED,
       now: () => new Date(t),
       fetcher: async (u, i) => {
         calls++;
         return ok(u, i);
       },
     });
-    expect(await svc.get()).toMatchObject({ zecNgn: 71_234.5, zecUsd: 45.6, source: "coingecko" });
+    expect(await svc.get()).toMatchObject({
+      rates: { NGN: 71_234.5, USD: 45.6, GBP: 36.1, CAD: 62.75 },
+      sources: { NGN: "coingecko", USD: "coingecko", GBP: "coingecko", CAD: "coingecko" },
+    });
     t += 4 * 60_000;
     await svc.get();
     expect(calls).toBe(1);
@@ -291,10 +305,18 @@ describe("price service", () => {
     expect(calls).toBe(2);
   });
 
-  it("falls back to the fixed rate when the fetch fails or returns junk", async () => {
-    const failing = new PriceService({ source: "coingecko", fixedZecNgn: 60_000, fixedZecUsd: 40, fetcher: async () => { throw new Error("offline"); } });
-    expect(await failing.get()).toMatchObject({ zecNgn: 60_000, zecUsd: 40, source: "fixed" });
-    const junk = new PriceService({ source: "coingecko", fixedZecNgn: 60_000, fixedZecUsd: 40, fetcher: async () => ({ ok: true, json: async () => ({ zcash: {} }) }) });
-    expect((await junk.get()).source).toBe("fixed");
+  it("falls back per currency: a missing or junk rate uses its fixed rate, the others stay live", async () => {
+    const partial = new PriceService({ source: "coingecko", fixed: FIXED, fetcher: async () => ({ ok: true, json: async () => ({ zcash: { usd: 45.6, gbp: "oops", cad: -1 } }) }) });
+    expect(await partial.get()).toMatchObject({
+      rates: { NGN: 60_000, USD: 45.6, GBP: 32, CAD: 50 },
+      sources: { NGN: "fixed", USD: "coingecko", GBP: "fixed", CAD: "fixed" },
+    });
+  });
+
+  it("falls back to every fixed rate when the fetch fails or returns junk", async () => {
+    const failing = new PriceService({ source: "coingecko", fixed: FIXED, fetcher: async () => { throw new Error("offline"); } });
+    expect(await failing.get()).toMatchObject({ rates: FIXED, sources: { NGN: "fixed", USD: "fixed", GBP: "fixed", CAD: "fixed" } });
+    const junk = new PriceService({ source: "coingecko", fixed: FIXED, fetcher: async () => ({ ok: true, json: async () => ({ nope: 1 }) }) });
+    expect((await junk.get()).sources.USD).toBe("fixed");
   });
 });

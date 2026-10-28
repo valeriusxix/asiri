@@ -1,9 +1,11 @@
+import type { CurrencyCode } from "./currency";
 import type {
   AdminDonation,
   AdminPayout,
   Category,
   ClaimOpen,
   ClaimRedeem,
+  CashoutDetails,
   ClaimUnlock,
   CreatedPayout,
   Fund,
@@ -50,15 +52,15 @@ export const api = {
   fund: () => get<Fund>("/fund"),
   price: () => get<Price>("/price"),
   transparency: () => get<Transparency>("/transparency"),
-  simulateDonation: (amountNgn: number) => post<{ donationId: string; amountZat: number }>("/donations/simulate", { amountNgn }),
+  simulateDonation: (amount: number, currency: CurrencyCode) => post<{ donationId: string; amountZat: number }>("/donations/simulate", { amount, currency }),
 
   claims: {
     open: (id: string, secret: string) => post<ClaimOpen>(`/claims/${id}/open`, { secret }),
     unlock: (id: string, secret: string, pin: string) => post<ClaimUnlock>(`/claims/${id}/unlock`, { secret, pin }),
     redeemToAddress: (id: string, claimToken: string, zcashAddress: string) =>
       post<ClaimRedeem>(`/claims/${id}/redeem`, { claimToken, method: "zcash_address", zcashAddress }),
-    redeemCashout: (id: string, claimToken: string, bankName: string, accountNumber: string) =>
-      post<ClaimRedeem>(`/claims/${id}/redeem`, { claimToken, method: "cashout_demo", bankName, accountNumber }),
+    redeemCashout: (id: string, claimToken: string, details: CashoutDetails) =>
+      post<ClaimRedeem>(`/claims/${id}/redeem`, { claimToken, method: "cashout_demo", ...details }),
   },
 
   auth: {
@@ -72,7 +74,7 @@ export const api = {
     sync: () => post<Overview>("/admin/sync"),
     donations: () => get<AdminDonation[]>("/admin/donations"),
     payouts: () => get<AdminPayout[]>("/admin/payouts"),
-    createPayout: (body: { amountNgn: number; category: Category; internalNote?: string; expiresInDays?: number }) =>
+    createPayout: (body: { amount: number; currency: CurrencyCode; category: Category; internalNote?: string; expiresInDays?: number }) =>
       post<CreatedPayout>("/admin/payouts", body),
     cancelPayout: (id: string) => post<AdminPayout>(`/admin/payouts/${id}/cancel`),
     unlockPayout: (id: string) => post<AdminPayout>(`/admin/payouts/${id}/unlock`),

@@ -3,8 +3,10 @@ import { ApiError, api } from "../api";
 import { AdminLayout } from "../components/AdminLayout";
 import { Alert, Button, ButtonLink, Card, DemoBadge, Spinner } from "../components/ui";
 import { admin as t, categoryLabels, common } from "../copy";
-import { formatDate, formatDateTime, formatNgn, formatZec, timeAgo, zatToNgn } from "../format";
-import { useAsync } from "../hooks";
+import { CurrencySwitcher } from "../components/CurrencySwitcher";
+import { formatZatAs } from "../currency";
+import { formatDate, formatDateTime, formatZec, timeAgo } from "../format";
+import { useAsync, useDisplayCurrency } from "../hooks";
 import type { AdminPayout, Overview, PayoutStatus } from "../types";
 
 const STATUS_STYLES: Record<PayoutStatus, string> = {
@@ -149,7 +151,7 @@ function Dashboard() {
                     <td className="whitespace-nowrap px-5 py-2.5">{formatDateTime(d.observedAt)}</td>
                     <td className="px-3 py-2.5">{d.source === "simulated" ? <DemoBadge /> : t.sourceZcash}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">
-                      <span className="font-semibold">{d.amountNgnDisplay}</span> <span className="text-black/45">{d.amountZecDisplay}</span>
+                      <span className="font-semibold">{d.amountDisplay}</span> <span className="text-black/45">{d.amountZecDisplay}</span>
                     </td>
                     <td className="max-w-[16rem] truncate px-3 py-2.5 text-black/70">{d.memo ?? "-"}</td>
                     <td className="px-5 py-2.5 font-mono text-xs text-black/50">{d.txid ? `${d.txid.slice(0, 10)}…` : "-"}</td>
@@ -164,8 +166,11 @@ function Dashboard() {
   );
 }
 
+/** Balances are held in ZEC; fiat beside them is approximate, in the fund currency or the one the organizer picks. */
 function Balances({ o }: { o: Overview }) {
-  const ngn = (zat: number) => formatNgn(zatToNgn(zat, o.zecNgn));
+  const [chosen, setCurrency] = useDisplayCurrency(o.fundCurrency);
+  const currency = chosen ?? o.fundCurrency;
+  const fiat = (zat: number) => formatZatAs(zat, o.rates[currency], currency);
   const items: { label: string; zat: number; strong?: boolean; hidden?: boolean }[] = [
     { label: t.spendable, zat: o.spendableZat },
     { label: t.reserved, zat: o.reservedZat },
@@ -174,6 +179,13 @@ function Balances({ o }: { o: Overview }) {
     { label: t.available, zat: o.availableZat, strong: true },
   ];
   return (
+    <div className="space-y-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <span className="text-sm text-black/55">
+        {t.switcherLabel} <span className="font-semibold text-ink">{currency}</span> · {t.approx}
+      </span>
+      <CurrencySwitcher value={currency} onChange={setCurrency} label={t.switcherLabel} />
+    </div>
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
       {items
         .filter((i) => !i.hidden)
@@ -181,9 +193,10 @@ function Balances({ o }: { o: Overview }) {
           <div key={i.label} className={`rounded-2xl p-4 ring-1 ${i.strong ? "bg-ink text-white ring-ink" : "bg-white ring-black/[0.06]"}`}>
             <p className={`text-sm font-medium ${i.strong ? "text-gold" : "text-black/55"}`}>{i.label}</p>
             <p className="mt-1 text-xl font-bold tabular-nums tracking-tight">{formatZec(i.zat)}</p>
-            <p className={`text-sm tabular-nums ${i.strong ? "text-white/60" : "text-black/45"}`}>{ngn(i.zat)}</p>
+            <p className={`text-sm tabular-nums ${i.strong ? "text-white/60" : "text-black/45"}`}>{fiat(i.zat)}</p>
           </div>
         ))}
+    </div>
     </div>
   );
 }
@@ -193,7 +206,7 @@ function PayoutRow({ p, onCancel, onUnlock }: { p: AdminPayout; onCancel: () => 
     <tr className="border-t border-black/[0.06] align-top">
       <td className="px-5 py-2.5 font-mono text-xs text-black/60">{p.id}</td>
       <td className="whitespace-nowrap px-3 py-2.5 tabular-nums">
-        <span className="font-semibold">{p.amountNgnDisplay}</span>
+        <span className="font-semibold">{p.amountDisplay}</span>
         <div className="text-xs text-black/45">{p.amountZecDisplay}</div>
       </td>
       <td className="px-3 py-2.5">

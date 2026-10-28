@@ -6,9 +6,9 @@
 import { openDb } from "./db/db.js";
 import { loadDotenvFile, parseEnv } from "./env.js";
 import { createLogger } from "./lib/logger.js";
-import { formatNgn } from "./lib/money.js";
+import { formatMoney, toMinor } from "./lib/currency.js";
 import { clearData, hasData, seedDemo } from "./services/demoSeed.js";
-import { PriceService } from "./services/price.js";
+import { fixedRates, PriceService } from "./services/price.js";
 import { createReportWriter } from "./services/reportWriter.js";
 
 loadDotenvFile();
@@ -30,11 +30,12 @@ if (hasData(db)) {
 
 async function main(): Promise<void> {
   const logger = createLogger("warn");
-  // Seed at the rate the app will display (live CoinGecko, or the fixed fallback), so naira totals add up.
-  const rate = await new PriceService({ source: env.PRICE_SOURCE, fixedZecNgn: env.FIXED_ZEC_NGN, fixedZecUsd: env.FIXED_ZEC_USD }).get();
-  const r = await seedDemo({ db, env, logger, writer: createReportWriter(env, logger), rate });
+  // Seed at the rates the app will display (live CoinGecko, or the fixed fallback), so the totals add up.
+  const quote = await new PriceService({ source: env.PRICE_SOURCE, fixed: fixedRates(env) }).get();
+  const r = await seedDemo({ db, env, logger, writer: createReportWriter(env, logger), rates: quote.rates });
+  const c = env.FUND_CURRENCY;
   console.log(
-    `Seeded at ${formatNgn(rate.zecNgn)} per ZEC (${rate.source}): ${r.zcashDonations} Zcash donations, ` +
+    `Seeded at 1 ZEC = ${formatMoney(toMinor(quote.rates[c], c) ?? Math.round(quote.rates[c] * 100), c)} (${quote.sources[c]}): ${r.zcashDonations} Zcash donations, ` +
       `${r.simulatedDonations} simulated donations, ${r.claimed} claimed payouts, ${r.active} active, ${r.expired} expired, ` +
       `1 published report (${r.reportGenerator}).`,
   );

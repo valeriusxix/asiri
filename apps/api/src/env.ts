@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
 import * as z from "zod";
+import { CURRENCY_CODES } from "./lib/currency.js";
 
 /** Repo root. env.ts sits at apps/api/{src,dist}/env.(ts|js), so the root is three levels up. */
 export const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -34,7 +35,7 @@ const rootPath = (def: string) =>
 export const EnvSchema = z
   .object({
     APP_NAME: z.string().default("Asiri"),
-    FUND_NAME: z.string().min(1).default("Lagos Community Relief Fund"),
+    FUND_NAME: z.string().min(1).default("Community Relief Fund"),
     FUND_DESCRIPTION: z.string().default("Private, fast support for medical, legal and emergency needs."),
     PORT: int(1, 65535, 8787),
     PUBLIC_WEB_URL: z.url().default("http://localhost:5173").transform((u) => u.replace(/\/+$/, "")),
@@ -60,9 +61,15 @@ export const EnvSchema = z
     PIN_MAX_ATTEMPTS: int(1, 50, 5),
     CLAIM_TOKEN_TTL_MINUTES: int(1, 24 * 60, 15),
 
+    /** The fund's main display currency (Section 6). Payouts can be in any supported currency. */
+    FUND_CURRENCY: z.enum(CURRENCY_CODES).default("USD"),
     PRICE_SOURCE: z.enum(["coingecko", "fixed"]).default("coingecko"),
-    FIXED_ZEC_NGN: z.coerce.number().positive().default(1_600_000),
-    FIXED_ZEC_USD: z.coerce.number().positive().default(1_200),
+    // Fallback ZEC prices, used when PRICE_SOURCE=fixed or the live price is unavailable. Placeholders, not market
+    // prices: set them to the day's rates before a demo (D-038).
+    FIXED_ZEC_NGN: z.coerce.number().positive().default(1_000_000),
+    FIXED_ZEC_USD: z.coerce.number().positive().default(1_000),
+    FIXED_ZEC_GBP: z.coerce.number().positive().default(1_000),
+    FIXED_ZEC_CAD: z.coerce.number().positive().default(1_000),
 
     ANTHROPIC_API_KEY: optionalString,
     ANTHROPIC_MODEL: z.string().min(1).default("claude-sonnet-5-5"),

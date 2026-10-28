@@ -9,8 +9,12 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
    ```ini
    PUBLIC_WEB_URL=http://192.168.1.20:8787   # claim links must open on the phone
    DEMO_MODE=true
+   FUND_CURRENCY=USD                         # the fund's display currency: NGN, USD, GBP or CAD
    PRICE_SOURCE=fixed                        # optional: numbers will not move during the pitch
-   FIXED_ZEC_NGN=1600000                     # set to today's rate if you use fixed
+   FIXED_ZEC_NGN=...                         # the .env.example values are PLACEHOLDERS: set all four to the day's
+   FIXED_ZEC_USD=...                         #   ZEC price (they are also the fallback if CoinGecko is unreachable)
+   FIXED_ZEC_GBP=...
+   FIXED_ZEC_CAD=...
    ANTHROPIC_API_KEY=sk-ant-...              # optional: AI-written update; without it the template is used
    ADMIN_PASSWORD=<a password only you know> # required: the default is printed in the README
    SESSION_SECRET=<64 random hex chars>      # required: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
@@ -34,30 +38,31 @@ This runs in mock mode (`ZCASH_MODE=mock`), which needs no blockchain, no faucet
 ## The 3 minutes
 
 ### 1. Story (20 s), on the home page
-> "In 2020, during #EndSARS, a Nigerian relief group's bank accounts were frozen. They moved to Bitcoin, which fixed the freezing, but made every donor and recipient traceable. Asiri fixes both."
+> "When a relief fund, a refugee-aid group or a legal defence fund needs money most, its bank or payment accounts can be frozen. A public blockchain avoids the freeze, but it makes every donor and every recipient traceable by anyone. Asiri fixes both, in whatever currency people use."
 
 ### 2. Donate (25 s), on the `/donate` tab
 - Show the QR and the "Your donation is private. Only the total is published." line.
 - > "Donors send shielded Zcash. In this demo the treasury is already funded."
-- In mock mode the QR holds a pretend address, so a real wallet can't pay it. You can also show the **Card or bank (demo)** tab: enter ₦20,000 and click **Donate (demo)**. Demo donations are listed separately and never count as money raised.
+- In mock mode the QR holds a pretend address, so a real wallet can't pay it. You can also show the **Card or bank (demo)** tab: pick a currency, enter an amount and click **Donate (demo)**. Demo donations are listed separately and never count as money raised.
 
 ### 3. Pay someone (40 s), on the `/admin` tab
 - Point at **Available for new payouts**.
-- Click **New payout**, then enter **Amount ₦50,000**, **Category: Medical** and **Create payout**.
+- Click **New payout**, choose **Currency: GBP**, enter **Amount 40**, **Category: Medical** and **Create payout**. Any of NGN, USD, GBP or CAD works; the recipient always sees the payout's own currency.
 - Show the result: the claim link, and the PIN with the line "Send this PIN separately… Never in the same message as the link."
 - Tap **Send link via WhatsApp** and send it to the phone. Then tap **Text the PIN (separate SMS)**, or read the PIN out loud.
 - > "The link and the PIN travel separately. The PIN is shown once, and we only store its hash."
 
 ### 4. Claim (40 s), on the phone
-- Open the WhatsApp message and tap the link. It shows "You've received support from Lagos Community Relief Fund".
-- Enter the 6-digit PIN and tap **Continue**. It shows **₦50,000 is yours**.
-- Tap **Cash out to my bank**, choose a bank, enter any 10 digits and tap **Send to my bank**. It shows **Done. Take care.**
+- Open the WhatsApp message and tap the link. It shows "You've received support from Community Relief Fund" (your `FUND_NAME`).
+- Enter the 6-digit PIN and tap **Continue**. It shows **£40.00 is yours**.
+- Tap **Cash out to my bank**. The form asks for what banks in that currency use: for GBP, a bank name, a 6-digit sort code and an 8-digit account number (USD asks for a routing number, CAD for institution and transit numbers, NGN for a 10-digit account number). Type any name and digits in the right format and tap **Send to my bank**. It shows **Done. Take care.**
 - > "No app, no seed phrase, no jargon. The everyday path never asks about wallets or crypto; that sits under Advanced, for people who already use Zcash. We don't keep their bank details."
 - If you refresh the page now, it says "You have received this support". The link is spent, not broken.
 - Optionally, open **Advanced: send to a Zcash wallet** to show that people who already have a Zcash wallet can paste an address instead.
 - Open the same link again. It now says "This support has already been received", so a forwarded link is useless once claimed.
 
 ### 5. Accountability (35 s), on the `/transparency` tab (refresh it)
+- Totals show in the fund currency. Tap **GBP**, **CAD** or **NGN** in the switcher: the same ZEC totals, converted at today's rate and labelled approximate. The choice is remembered on that browser.
 - **Paid out** and **People helped** have gone up, and this week's bar has grown. **Payments by need** shows Medical.
 - Scroll to **Verify it yourself**, which shows the fund's viewing key (UFVK). In mock mode the page labels it **Demo**, because the mock treasury's key is a placeholder that no wallet will import. Don't invite anyone to import it.
 - > "With the real treasury on Zcash, anyone can load the fund's viewing key and check these totals against the payments themselves. Here it's a mock treasury, so the key is a placeholder, as the page says. Either way, nobody can see who received money."
@@ -92,5 +97,5 @@ A live testnet send takes 40 to 200 s over the Nym mixnet and sometimes stalls, 
 If you want to run testnet live anyway (allow 5 extra minutes):
 1. Use the `ZCASH_MODE=zingo` settings in the README and `SYNC_INTERVAL_SECONDS=300`.
 2. Click **Sync now** at least 10 minutes before you present.
-3. Keep the payout small (₦5,000).
+3. Keep the payout small (for example $5 or £5).
 4. Start the claim on the phone before you talk through the transparency page, so the send finishes in the background.

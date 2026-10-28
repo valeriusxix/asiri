@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { audit, type DB } from "../db/db.js";
 import { HttpError } from "../lib/http.js";
-import { formatNgn, zatToNgn } from "../lib/money.js";
+import { CURRENCIES, formatZatAs, type CurrencyCode } from "../lib/currency.js";
 import type { AppContext } from "./context.js";
 import { outstandingZat, periodTotals } from "./transparency.js";
 
@@ -15,7 +15,11 @@ export interface ReportStats {
   periodLabel: string;
   /** Lets the text say "the last 30 days" now that every number is checked (audit M2). */
   periodDays: number;
-  rateZecNgn: number;
+  /** Every amount below is pre-formatted in this currency (the fund currency) at this rate. */
+  currency: CurrencyCode;
+  currencyName: string;
+  currencySymbol: string;
+  rateZecFiat: number;
   donationsReceived: string;
   donationsCount: number;
   simulatedDonations: string;
@@ -54,26 +58,29 @@ export interface Report {
 
 const dateLabel = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
-export function buildStats(ctx: AppContext, start: Date, end: Date, rateZecNgn: number): ReportStats {
+export function buildStats(ctx: AppContext, start: Date, end: Date, rateZecFiat: number, currency: CurrencyCode): ReportStats {
   // periodTotals' end is exclusive; +1 ms so events recorded at exactly `end` (now) are included.
   const t = periodTotals(ctx.db, start.toISOString(), new Date(end.getTime() + 1).toISOString());
-  const ngn = (zat: number) => formatNgn(zatToNgn(zat, rateZecNgn));
+  const fiat = (zat: number) => formatZatAs(zat, rateZecFiat, currency);
   return {
     fundName: ctx.env.FUND_NAME,
     periodStart: start.toISOString().slice(0, 10),
     periodEnd: end.toISOString().slice(0, 10),
     periodLabel: `${dateLabel(start)} to ${dateLabel(end)}`,
     periodDays: Math.round((end.getTime() - start.getTime()) / DAY_MS),
-    rateZecNgn,
-    donationsReceived: ngn(t.receivedZat),
+    currency,
+    currencyName: CURRENCIES[currency].name,
+    currencySymbol: CURRENCIES[currency].symbol,
+    rateZecFiat,
+    donationsReceived: fiat(t.receivedZat),
     donationsCount: t.donationsCount,
-    simulatedDonations: ngn(t.simulatedZat),
-    paidOut: ngn(t.paidOutZat),
+    simulatedDonations: fiat(t.simulatedZat),
+    paidOut: fiat(t.paidOutZat),
     paymentsCount: t.payoutsCount,
-    demoCashouts: ngn(t.demoCashoutZat),
+    demoCashouts: fiat(t.demoCashoutZat),
     demoCashoutsCount: t.demoCashoutCount,
-    waitingToBeClaimed: ngn(outstandingZat(ctx.db)),
-    byCategory: t.byCategory.map((c) => ({ category: c.category, payments: c.count, amount: ngn(c.amountZat) })),
+    waitingToBeClaimed: fiat(outstandingZat(ctx.db)),
+    byCategory: t.byCategory.map((c) => ({ category: c.category, payments: c.count, amount: fiat(c.amountZat) })),
   };
 }
 
@@ -130,7 +137,7 @@ export async function generateReport(ctx: AppContext, periodDays: number, writer
   const end = ctx.now();
   const start = new Date(end.getTime() - periodDays * DAY_MS);
   const quote = await ctx.price.get();
-  const stats = buildStats(ctx, start, end, quote.zecNgn);
+  const stats = buildStats(ctx, start, end, quote.rates[ctx.env.FUND_CURRENCY], ctx.env.FUND_CURRENCY);
   const { body, generator } = await writer(stats);
   const id = randomUUID();
   ctx.db

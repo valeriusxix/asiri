@@ -1,6 +1,8 @@
 // Mirrors the API response shapes in Agent.md Section 8 (plus the additive fields in docs/DECISIONS.md D-017).
 // Keep in sync by hand: there is deliberately no shared package between web and api.
 
+import type { CurrencyCode } from "./currency";
+
 export type Network = "testnet" | "mainnet";
 export type Category = "medical" | "legal" | "food" | "transport" | "shelter" | "other";
 export type PayoutStatus = "active" | "claiming" | "claimed" | "expired" | "cancelled" | "locked";
@@ -25,12 +27,14 @@ export interface Fund {
   paymentUri: string;
   demoMode: boolean;
   mode: "mock" | "zingo";
+  fundCurrency: CurrencyCode;
 }
 
 export interface Price {
-  zecNgn: number;
-  zecUsd: number;
-  source: "coingecko" | "fixed";
+  /** ZEC price in each supported currency, and where each came from. */
+  rates: Record<CurrencyCode, number>;
+  sources: Record<CurrencyCode, "coingecko" | "fixed">;
+  fundCurrency: CurrencyCode;
   updatedAt: string;
 }
 
@@ -41,7 +45,10 @@ export interface ReportStats {
   periodLabel: string;
   /** Absent on reports written before audit M2. */
   periodDays?: number;
-  rateZecNgn: number;
+  currency: CurrencyCode;
+  currencyName: string;
+  currencySymbol: string;
+  rateZecFiat: number;
   donationsReceived: string;
   donationsCount: number;
   simulatedDonations: string;
@@ -58,7 +65,7 @@ export interface Transparency {
   fundName: string;
   network: Network;
   mode: "mock" | "zingo";
-  currency: { zecNgn: number; source: string };
+  fundCurrency: CurrencyCode;
   totals: {
     receivedZat: number;
     simulatedZat: number;
@@ -85,9 +92,21 @@ export interface ClaimOpen {
 export interface ClaimUnlock {
   amountZat: number;
   amountZecDisplay: string;
-  amountNgnDisplay: string;
+  /** The payout's own currency; the recipient never chooses one. */
+  currency: CurrencyCode;
+  amountDisplay: string;
   expiresAt: string;
   claimToken: string;
+}
+
+/** Demo cash-out details for the payout's currency: checked, then discarded by the API. */
+export interface CashoutDetails {
+  bankName: string;
+  accountNumber: string;
+  routingNumber?: string;
+  sortCode?: string;
+  institutionNumber?: string;
+  transitNumber?: string;
 }
 
 export interface ClaimRedeem {
@@ -106,7 +125,8 @@ export interface Overview {
   lastSyncAt: string | null;
   lastSyncError: string | null;
   counts: { active: number; claimed: number; expired: number; cancelled: number; locked: number };
-  zecNgn: number;
+  fundCurrency: CurrencyCode;
+  rates: Record<CurrencyCode, number>;
   mode: "mock" | "zingo";
   network: Network;
 }
@@ -115,9 +135,10 @@ export interface AdminPayout {
   id: string;
   amountZat: number;
   feeBufferZat: number;
-  amountNgn: number;
-  rateZecNgn: number;
-  amountNgnDisplay: string;
+  currency: CurrencyCode;
+  amountFiatMinor: number;
+  rateZecFiat: number;
+  amountDisplay: string;
   amountZecDisplay: string;
   category: Category;
   internalNote: string | null;
@@ -144,7 +165,8 @@ export interface AdminDonation {
   txid: string | null;
   amountZat: number;
   amountZecDisplay: string;
-  amountNgnDisplay: string;
+  /** Approximate, in the fund currency at today's rate. */
+  amountDisplay: string;
   memo: string | null;
   observedAt: string;
 }

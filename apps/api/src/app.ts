@@ -15,7 +15,7 @@ import { claimRoutes } from "./routes/claims.js";
 import { devRoutes } from "./routes/dev.js";
 import { publicRoutes } from "./routes/public.js";
 import type { AppContext } from "./services/context.js";
-import { PriceService, type Fetcher } from "./services/price.js";
+import { fixedRates, PriceService, type Fetcher } from "./services/price.js";
 import { createReportWriter } from "./services/reportWriter.js";
 import type { ReportWriter } from "./services/reports.js";
 import { guardAdapter, ZcashError, type ZcashAdapter } from "./zcash/adapter.js";
@@ -65,8 +65,7 @@ export function createApp(deps: AppDeps): express.Express {
       deps.price ??
       new PriceService({
         source: env.PRICE_SOURCE,
-        fixedZecNgn: env.FIXED_ZEC_NGN,
-        fixedZecUsd: env.FIXED_ZEC_USD,
+        fixed: fixedRates(env),
         fetcher: deps.fetcher,
         now,
       }),

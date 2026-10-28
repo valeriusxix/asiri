@@ -3,7 +3,8 @@ import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { parseEnv } from "../env.js";
 import { createLogger } from "../lib/logger.js";
-import { allowedNumbers, createReportWriter, REPORT_SYSTEM_PROMPT, unexpectedNumbers, validateReport, type MessagesClient } from "../services/reportWriter.js";
+import { CURRENCIES, formatMoney, type CurrencyCode } from "../lib/currency.js";
+import { allowedNumbers, createReportWriter, reportSystemPrompt, unexpectedNumbers, validateReport, type MessagesClient } from "../services/reportWriter.js";
 import { templateReport, templateWriter, type ReportStats } from "../services/reports.js";
 import { createPayout, setup, TEST_ENV, TESTNET_ADDRESS } from "./helpers.js";
 
@@ -13,7 +14,10 @@ const STATS: ReportStats = {
   periodEnd: "2026-10-20",
   periodLabel: "13 October 2026 to 20 October 2026",
   periodDays: 7,
-  rateZecNgn: 60000,
+  currency: "NGN",
+  currencyName: "Nigerian naira",
+  currencySymbol: "₦",
+  rateZecFiat: 60000,
   donationsReceived: "₦1,250,000",
   donationsCount: 14,
   simulatedDonations: "₦15,000",
@@ -57,6 +61,64 @@ function fakeClient(respond: () => Promise<Anthropic.Beta.Messages.BetaMessage>)
 }
 
 const envWith = (extra: Record<string, string> = {}) => parseEnv({ ...TEST_ENV, ANTHROPIC_API_KEY: "test-key", ...extra });
+
+/** The same period stats, formatted in any supported currency (amounts in minor units). */
+function statsIn(code: CurrencyCode): ReportStats {
+  const m = (minor: number) => formatMoney(minor, code);
+  return {
+    ...STATS,
+    currency: code,
+    currencyName: CURRENCIES[code].name,
+    currencySymbol: CURRENCIES[code].symbol,
+    donationsReceived: m(125_000),
+    simulatedDonations: m(1_500),
+    paidOut: m(48_050),
+    demoCashouts: m(4_500),
+    waitingToBeClaimed: m(7_000),
+    byCategory: [
+      { category: "medical", payments: 5, amount: m(30_050) },
+      { category: "food", payments: 4, amount: m(18_000) },
+    ],
+  };
+}
+
+describe("reports in every supported currency", () => {
+  it("formats the stats in the fund currency", () => {
+    expect(statsIn("GBP").donationsReceived).toBe("£1,250.00");
+    expect(statsIn("CAD").donationsReceived).toBe("CA$1,250.00");
+    expect(statsIn("USD").donationsReceived).toBe("$1,250.00");
+    expect(statsIn("NGN").donationsReceived).toBe("₦1,250");
+  });
+
+  it("tells Claude the currency instead of hard-coding the naira sign", () => {
+    expect(reportSystemPrompt(statsIn("GBP"))).toContain("- Show amounts in British pounds using £ and the formatting given.");
+    expect(reportSystemPrompt(statsIn("CAD"))).toContain("- Show amounts in Canadian dollars using CA$ and the formatting given.");
+    expect(reportSystemPrompt(statsIn("USD"))).not.toContain("₦");
+  });
+
+  it.each([
+    ["GBP", "£1,250.00", "£1,250", "£480.50", "£975.00"],
+    ["USD", "$1,250.00", "$1,250", "$480.50", "$975.00"],
+    ["CAD", "CA$1,250.00", "CA$1,250", "CA$480.50", "CA$975.00"],
+    ["NGN", "₦1,250", "₦1,250.00", "₦480.50", "₦975"],
+  ] as const)("%s: accepts the given figures in either form, rejects a made-up one", (code, full, short, paid, invented) => {
+    const stats = statsIn(code);
+    const good = `Donors gave ${full} in 14 donations. We sent ${paid} in 9 payments. Thank you. Please verify the totals on our transparency page.`;
+    expect(validateReport(good, stats)).toEqual({ ok: true });
+    expect(validateReport(good.replace(full, short), stats)).toEqual({ ok: true });
+    expect(validateReport(`${good} A further ${invented} is on its way.`, stats)).toEqual({ ok: false, reason: "unexpected_number" });
+  });
+
+  it("the template fallback uses the same formatting and passes its own check, in every currency", () => {
+    for (const code of ["NGN", "USD", "GBP", "CAD"] as const) {
+      const stats = statsIn(code);
+      const text = templateReport(stats);
+      expect(text).toContain(stats.donationsReceived);
+      expect(text).toContain(stats.paidOut);
+      expect(validateReport(text, stats)).toEqual({ ok: true });
+    }
+  });
+});
 
 describe("report number validation", () => {
   it("collects every number in the stats, comma-free", () => {
@@ -133,7 +195,7 @@ describe("Claude report writer", () => {
     expect(params).toMatchObject({
       model: "claude-sonnet-5-5",
       max_tokens: 600,
-      system: REPORT_SYSTEM_PROMPT,
+      system: reportSystemPrompt(STATS),
       output_config: { effort: "low" },
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",
@@ -168,7 +230,7 @@ describe("report stats privacy", () => {
     const h = setup();
     await h.mockDonate(300_000_000, "for Mama Ngozi");
     await h.jobs.runOnce();
-    const p = await createPayout(h, { amountNgn: 30_000, category: "medical", internalNote: "Clinic visit, week 2" });
+    const p = await createPayout(h, { amount: 30_000, category: "medical", internalNote: "Clinic visit, week 2" });
     const t = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
     await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: t, method: "zcash_address", zcashAddress: TESTNET_ADDRESS }).expect(200);
 

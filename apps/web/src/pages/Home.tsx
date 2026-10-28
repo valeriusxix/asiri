@@ -63,6 +63,14 @@ export function Home() {
             <p>{t.whyZcash}</p>
           </div>
           <p className="mt-6 text-lg font-bold">{t.whyClose}</p>
+          <h3 className="mt-10 text-sm font-semibold uppercase tracking-wider text-white/55">{t.useCasesTitle}</h3>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {t.useCases.map((u) => (
+              <li key={u} className="rounded-full bg-white/10 px-3.5 py-1.5 text-[15px] text-white/85">
+                {u}
+              </li>
+            ))}
+          </ul>
         </section>
       </main>
 

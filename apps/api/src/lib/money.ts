@@ -19,15 +19,4 @@ export function formatZec(zat: number, decimals = 4): string {
   return `${Number(whole).toLocaleString("en-US")}${shown ? `.${shown}` : ""} ZEC`;
 }
 
-export function ngnToZat(amountNgn: number, zecNgn: number): number {
-  return Math.round((amountNgn / zecNgn) * ZAT_PER_ZEC);
-}
-
-export function zatToNgn(zat: number, zecNgn: number): number {
-  return Math.round((zat / ZAT_PER_ZEC) * zecNgn);
-}
-
-/** "₦50,000" */
-export function formatNgn(amountNgn: number): string {
-  return `₦${Math.round(amountNgn).toLocaleString("en-US")}`;
-}
+// Fiat amounts (any supported currency) live in lib/currency.ts.

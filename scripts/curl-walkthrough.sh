@@ -16,8 +16,8 @@ echo "3. Mock donation (2 ZEC) + sync"
 curl -s -b "$JAR" -H "$J" -d '{"amountZat":200000000,"memo":"stay strong"}' "$B/dev/mock-donate" >/dev/null   # organizer session required
 curl -s -b "$JAR" -X POST "$B/admin/sync" | field availableZat | sed 's/^/   availableZat: /'
 
-echo "4. New payout: N50,000 medical"
-CREATED="$(curl -s -b "$JAR" -H "$J" -d '{"amountNgn":50000,"category":"medical","expiresInDays":7}' "$B/admin/payouts")"
+echo '4. New payout: $40.00 medical (USD)'
+CREATED="$(curl -s -b "$JAR" -H "$J" -d '{"amount":40,"currency":"USD","category":"medical","expiresInDays":7}' "$B/admin/payouts")"
 LINK="$(echo "$CREATED" | field link)"
 PIN="$(echo "$CREATED" | field pin)"
 ID="${LINK##*/c/}"; ID="${ID%%#*}"
@@ -29,7 +29,7 @@ echo "5. Recipient opens the link"; curl -s -H "$J" -d "{\"secret\":\"$SECRET\"}
 echo "6. Wrong PIN";                curl -s -H "$J" -d "{\"secret\":\"$SECRET\",\"pin\":\"$([ "$PIN" = 000000 ] && echo 111111 || echo 000000)\"}" "$B/claims/$ID/unlock"; echo
 echo "7. Right PIN"
 UNLOCKED="$(curl -s -H "$J" -d "{\"secret\":\"$SECRET\",\"pin\":\"$PIN\"}" "$B/claims/$ID/unlock")"
-echo "   $(echo "$UNLOCKED" | field amountNgnDisplay) ($(echo "$UNLOCKED" | field amountZecDisplay))"
+echo "   $(echo "$UNLOCKED" | field amountDisplay) ($(echo "$UNLOCKED" | field amountZecDisplay))"
 TOKEN="$(echo "$UNLOCKED" | field claimToken)"
 
 echo "8. Redeem to a testnet address"

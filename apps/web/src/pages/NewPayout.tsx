@@ -4,7 +4,8 @@ import { ApiError, api } from "../api";
 import { AdminLayout } from "../components/AdminLayout";
 import { Alert, Button, ButtonLink, Card, CopyButton, Field, Icon, Spinner, buttonClass, inputClass } from "../components/ui";
 import { admin as t, categoryLabels, common } from "../copy";
-import { formatNgn, formatZec, ngnToZat } from "../format";
+import { CURRENCIES, CURRENCY_CODES, fiatMinorToZat, formatMoney, limitsText, parseAmount, withinLimits, type CurrencyCode } from "../currency";
+import { formatZec } from "../format";
 import { useAsync } from "../hooks";
 import { CATEGORIES, type Category, type CreatedPayout } from "../types";
 
@@ -15,6 +16,9 @@ export default function NewPayout() {
 
 function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
   const price = useAsync(() => api.price());
+  const [picked, setPicked] = useState<CurrencyCode | null>(null);
+  // The fund currency is the default until the organizer picks another one.
+  const currency = picked ?? price.data?.fundCurrency ?? "USD";
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<Category>("medical");
   const [note, setNote] = useState("");
@@ -22,8 +26,9 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const amountNgn = Number(amount.replace(/[,\s₦]/g, ""));
-  const valid = Number.isInteger(amountNgn) && amountNgn >= 500 && amountNgn <= 5_000_000;
+  const minor = parseAmount(amount, currency);
+  const valid = minor !== null && withinLimits(minor, currency, "payout");
+  const range = t.amountRange(limitsText(currency, "payout"));
 
   return (
     <div className="mx-auto max-w-xl">
@@ -35,7 +40,7 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
           onSubmit={async (e) => {
             e.preventDefault();
             if (!valid) {
-              setError(t.amountRange);
+              setError(range);
               return;
             }
             setBusy(true);
@@ -43,7 +48,8 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
             try {
               onCreated(
                 await api.admin.createPayout({
-                  amountNgn,
+                  amount: minor! / 100,
+                  currency,
                   category,
                   internalNote: note.trim() || undefined,
                   expiresInDays: Number(days),
@@ -63,25 +69,43 @@ function PayoutForm({ onCreated }: { onCreated: (c: CreatedPayout) => void }) {
             }
           }}
         >
+          <Field label={t.currency} htmlFor="currency">
+            <select
+              id="currency"
+              value={currency}
+              onChange={(e) => {
+                setPicked(e.target.value as CurrencyCode);
+                setAmount("");
+                setError(null);
+              }}
+              className={inputClass}
+            >
+              {CURRENCY_CODES.map((c) => (
+                <option key={c} value={c}>
+                  {c} ({CURRENCIES[c].symbol})
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field
-            label={t.amountNgn}
+            label={`${t.amount} (${CURRENCIES[currency].symbol})`}
             htmlFor="amount"
-            help={valid && price.data ? t.amountHelp(formatZec(ngnToZat(amountNgn, price.data.zecNgn), 8)) : t.amountRange}
+            help={valid && price.data ? t.amountHelp(formatZec(fiatMinorToZat(minor!, price.data.rates[currency], currency), 8)) : range}
           >
             <input
               id="amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              inputMode="numeric"
-              placeholder="50000"
+              inputMode="decimal"
+              placeholder={String(CURRENCIES[currency].presets[2])}
               autoFocus
               className={`${inputClass} text-xl font-semibold tabular-nums`}
             />
           </Field>
           <div className="flex flex-wrap gap-2">
-            {[10_000, 25_000, 50_000, 100_000].map((v) => (
+            {CURRENCIES[currency].presets.map((v) => (
               <button key={v} type="button" className={buttonClass("secondary", "sm")} onClick={() => setAmount(String(v))}>
-                {formatNgn(v)}
+                {formatMoney(v * 100, currency)}
               </button>
             ))}
           </div>
@@ -142,7 +166,7 @@ function Created({ result, onAnother }: { result: CreatedPayout; onAnother: () =
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t.createdTitle}</h1>
           <p className="text-black/60">
-            {result.payout.amountNgnDisplay} · {categoryLabels[result.payout.category]} · {result.payout.amountZecDisplay}
+            {result.payout.amountDisplay} · {categoryLabels[result.payout.category]} · {result.payout.amountZecDisplay}
           </p>
         </div>
       </div>

@@ -1,17 +1,6 @@
 export const ZAT_PER_ZEC = 100_000_000;
 
-export const zatToNgn = (zat: number, zecNgn: number) => Math.round((zat / ZAT_PER_ZEC) * zecNgn);
-export const ngnToZat = (ngn: number, zecNgn: number) => Math.round((ngn / zecNgn) * ZAT_PER_ZEC);
-
-/** "₦50,000" */
-export const formatNgn = (ngn: number) => `₦${Math.round(ngn).toLocaleString("en-US")}`;
-
-/** "₦1.2M", "₦850K" for chart axes. */
-export function compactNgn(ngn: number): string {
-  if (ngn >= 1_000_000) return `₦${(ngn / 1_000_000).toFixed(ngn >= 10_000_000 ? 0 : 1).replace(/\.0$/, "")}M`;
-  if (ngn >= 1_000) return `₦${Math.round(ngn / 1_000)}K`;
-  return formatNgn(ngn);
-}
+// Fiat amounts in any supported currency: see currency.ts.
 
 /** "0.8333 ZEC" (rounded down to `decimals`). */
 export function formatZec(zat: number, decimals = 4): string {

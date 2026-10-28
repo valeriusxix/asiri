@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import { transparencyCopy as t } from "../copy";
-import { compactNgn, formatNgn, formatWeek, formatZec, zatToNgn } from "../format";
+import { compactMoney, formatMoney, zatToFiatMinor, type CurrencyCode } from "../currency";
+import { formatWeek, formatZec } from "../format";
 import type { Transparency } from "../types";
 
 // Two categorical slots, validated with the dataviz palette checker on the white card surface
@@ -11,8 +12,11 @@ const PAID = "#2a78d6";
 
 interface Row {
   week: string;
+  /** Major units, for bar heights and the axis. */
   received: number;
   paid: number;
+  receivedMinor: number;
+  paidMinor: number;
   receivedZat: number;
   paidZat: number;
 }
@@ -25,7 +29,7 @@ export function axisTicks(weeks: string[]): string[] {
   return weeks.filter((_, i) => (weeks.length - 1 - i) % 2 === 0);
 }
 
-function ChartTooltip({ active, payload }: TooltipContentProps) {
+function ChartTooltip({ active, payload, currency }: TooltipContentProps & { currency: CurrencyCode }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]!.payload as Row;
   return (
@@ -35,12 +39,12 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
       </p>
       <p className="mt-1 flex items-center gap-2 text-black/70">
         <span className="size-2.5 rounded-sm" style={{ background: RECEIVED }} />
-        {t.chartReceived}: <span className="font-semibold text-ink">{formatNgn(row.received)}</span>
+        {t.chartReceived}: <span className="font-semibold text-ink">{formatMoney(row.receivedMinor, currency)}</span>
         <span className="text-black/45">{formatZec(row.receivedZat)}</span>
       </p>
       <p className="flex items-center gap-2 text-black/70">
         <span className="size-2.5 rounded-sm" style={{ background: PAID }} />
-        {t.chartPaid}: <span className="font-semibold text-ink">{formatNgn(row.paid)}</span>
+        {t.chartPaid}: <span className="font-semibold text-ink">{formatMoney(row.paidMinor, currency)}</span>
         <span className="text-black/45">{formatZec(row.paidZat)}</span>
       </p>
     </div>
@@ -48,15 +52,13 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
 }
 
 /** Received vs paid out per week, with a table view (identity is never color-alone). */
-export default function WeeklyChart({ weekly, zecNgn }: { weekly: Transparency["weekly"]; zecNgn: number }) {
+export default function WeeklyChart({ weekly, rate, currency }: { weekly: Transparency["weekly"]; rate: number; currency: CurrencyCode }) {
   const [asTable, setAsTable] = useState(false);
-  const rows: Row[] = weekly.map((w) => ({
-    week: formatWeek(w.weekStart),
-    received: zatToNgn(w.receivedZat, zecNgn),
-    paid: zatToNgn(w.paidOutZat, zecNgn),
-    receivedZat: w.receivedZat,
-    paidZat: w.paidOutZat,
-  }));
+  const rows: Row[] = weekly.map((w) => {
+    const receivedMinor = zatToFiatMinor(w.receivedZat, rate, currency);
+    const paidMinor = zatToFiatMinor(w.paidOutZat, rate, currency);
+    return { week: formatWeek(w.weekStart), received: receivedMinor / 100, paid: paidMinor / 100, receivedMinor, paidMinor, receivedZat: w.receivedZat, paidZat: w.paidOutZat };
+  });
 
   return (
     <div>
@@ -88,8 +90,8 @@ export default function WeeklyChart({ weekly, zecNgn }: { weekly: Transparency["
             {rows.map((r) => (
               <tr key={r.week} className="border-t border-black/[0.06]">
                 <td className="py-2">{r.week}</td>
-                <td className="py-2 text-right">{formatNgn(r.received)}</td>
-                <td className="py-2 text-right">{formatNgn(r.paid)}</td>
+                <td className="py-2 text-right">{formatMoney(r.receivedMinor, currency)}</td>
+                <td className="py-2 text-right">{formatMoney(r.paidMinor, currency)}</td>
               </tr>
             ))}
           </tbody>
@@ -100,8 +102,8 @@ export default function WeeklyChart({ weekly, zecNgn }: { weekly: Transparency["
             <BarChart data={rows} margin={{ top: 4, right: 0, bottom: 0, left: 0 }} barGap={2} barCategoryGap="22%">
               <CartesianGrid vertical={false} stroke="#00000012" />
               <XAxis dataKey="week" tickLine={false} axisLine={{ stroke: "#00000026" }} tick={{ fontSize: 11, fill: "#00000099" }} ticks={axisTicks(rows.map((r) => r.week))} interval={0} />
-              <YAxis tickFormatter={compactNgn} tickLine={false} axisLine={false} width={48} tick={{ fontSize: 11, fill: "#00000099" }} />
-              <Tooltip content={(props) => <ChartTooltip {...props} />} cursor={{ fill: "#0000000a" }} />
+              <YAxis tickFormatter={(v: number) => compactMoney(v, currency)} tickLine={false} axisLine={false} width={48} tick={{ fontSize: 11, fill: "#00000099" }} />
+              <Tooltip content={(props) => <ChartTooltip {...props} currency={currency} />} cursor={{ fill: "#0000000a" }} />
               <Bar dataKey="received" name={t.chartReceived} fill={RECEIVED} radius={[4, 4, 0, 0]} maxBarSize={22} />
               <Bar dataKey="paid" name={t.chartPaid} fill={PAID} radius={[4, 4, 0, 0]} maxBarSize={22} />
             </BarChart>

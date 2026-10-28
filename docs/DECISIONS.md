@@ -2,7 +2,7 @@
 
 Where Agent.md is ambiguous, impossible, or out of date with current libraries, the chosen resolution is recorded here (Agent.md rule 10). Newest at the bottom.
 
-## D-001 Payout currency is naira only
+## D-001 Payout currency is naira only (superseded by D-038)
 Section 1 says organizers create payouts "in USD($), CAD or naira (₦)". Every detailed section (2.1, 7, 8.4, 11.2, 12, env vars) only models naira: `amountNgn`, `amount_ngn_at_creation`, `rate_zec_ngn`, `FIXED_ZEC_NGN`. There is no CAD rate anywhere.
 **Resolution:** payouts are created in ₦ only. `/api/price` also returns `zecUsd` (as specified) and the UI may show USD as a secondary hint. Multi-currency payouts would need a schema change; not done unless requested.
 
@@ -94,7 +94,7 @@ The payout result screen also offers an SMS button prefilled with only the PIN (
 ## D-026 Report validation
 On top of Section 12's number check (any 3+ digit number not present in the stats rejects the output), the validator also rejects empty text and crypto jargon (`ZEC`, `zatoshi`, `blockchain`, `crypto`, `shielded`, `wallet`), since the text is published on the public page. Numbers allowed are collected from every field of the stats, including the period label, so dates like "2026" pass.
 
-## D-027 Fixed fallback rate and seed pricing
+## D-027 Fixed fallback rate and seed pricing (rates superseded by D-038)
 CoinGecko quoted ₦1,616,408 / $1,199 per ZEC on 2026-10-25, against the spec's placeholder of ₦60,000 / $40. `.env.example` and the env defaults now use ₦1,600,000 / $1,200, as Section 6 asks ("update before demo"), so the fallback rate stays in the same range as the live one. The demo seed writes donations in naira and converts them at the rate the app will show (the live quote, or the fixed one), rounded to 3 significant figures of ZEC. Seeded payouts and the public naira totals then add up at whatever price ZEC trades at.
 
 ## D-028 Unconfirmed sends keep the payout in `claiming`
@@ -126,3 +126,18 @@ Section 11.2 drops the secret from the address bar after "Done", and a URL witho
 
 ## D-037 Redeem answers only the holder of the claim token (audit L1)
 `/redeem` takes no secret, only the payout id (which is in the URL path, so it reaches access logs and WhatsApp's link-preview fetch) and a claim token. It used to branch on the payout's status before checking the token, so a garbage token returned 401 for active, 409 for claimed, 410 for cancelled or expired, and 404 for unknown ids. It now compares the token hash first (timing-safe), and every non-matching token, including unknown ids, gets `401 claim_session_expired`. The claim page then asks for the PIN again, and `/unlock` (secret + PIN) gives the true status. The spent token's hash is now kept after a claim, so replaying it is still the `409 already_processing` double claim Section 14 requires. Cancel, expiry and lock still clear the token. This refines D-003.
+
+## D-038 Multi-currency (NGN, USD, GBP, CAD) and global framing
+Supersedes D-001 (naira only) and the rates in D-027. The field names in D-017 are renamed as listed below.
+- **One definition per app.** `apps/api/src/lib/currency.ts` (mirrored by hand in `apps/web/src/currency.ts`, since there is no shared package) defines each currency: code, symbol, locale, 2 minor units, and payout and donation limits. Formatting is `Intl.NumberFormat(locale, { style: "currency", currency })`, with two adjustments. The currency symbol is replaced by the defined one, because en-CA prints "$" for CAD, which would read as USD on a page that mixes currencies, so CAD shows "CA$". NGN drops ".00" on whole amounts ("₦50,000"), as naira amounts are usually written; the others keep it ("$50.00").
+- **Env.** `FUND_CURRENCY` (default `USD`) is the display currency. `FIXED_ZEC_NGN/USD/GBP/CAD` are fallback rates. Their `.env.example` and default values (1,000,000 / 1,000 / 1,000 / 1,000) are deliberately round placeholders, not market prices; the operator sets them before a demo. Default `FUND_NAME` is "Community Relief Fund".
+- **Prices.** One CoinGecko call (`vs_currencies=ngn,usd,gbp,cad`), cached 5 minutes. A currency missing or invalid in the answer falls back to its fixed rate alone, and `/api/price` reports the source of each.
+- **Payouts.** `{ amount, currency? }`: up to 2 decimals, stored as integer minor units, within the currency's limits (default currency `FUND_CURRENCY`). New columns `currency`, `amount_fiat_minor` and `rate_zec_fiat` are added with `ALTER TABLE ADD COLUMN` (idempotent, no rebuild), and old rows are backfilled as NGN. The legacy `amount_ngn_at_creation` and `rate_zec_ngn` are NOT NULL, so new rows still write them (the naira equivalent at creation), but nothing reads them.
+- **Renamed fields.** `amountNgn` becomes `amount` (+ `currency`); `amountNgnDisplay` becomes `amountDisplay` (+ `currency`); overview `zecNgn` becomes `rates` + `fundCurrency`; transparency `currency` becomes `fundCurrency`; `/api/price` becomes `{ rates, sources, fundCurrency, updatedAt }`; report stats `rateZecNgn` becomes `rateZecFiat` + `currency`, `currencyName`, `currencySymbol`. Agent.md is updated to match.
+- **Transparency and admin overview** show fiat in `FUND_CURRENCY` with an NGN/USD/GBP/CAD switcher converted on the client and labelled "approx., at today's rate"; the choice is kept in localStorage behind try/catch. The admin overview uses the `rates` it returns, which come from the same price service as `/api/price`.
+- **Share message** now names the formatted amount, as requested ("you have received £40.00 in support from …"). The trade-off: anyone who sees the WhatsApp or SMS message sees the amount. The link's secret and the PIN stay separate as before.
+- **Demo cash-out** asks for the payout currency's usual details (NGN account number; USD routing + account; GBP sort code + account; CAD institution + transit + account), with a free-text bank name for all. The API checks them against the payout's currency only after the claim token is verified, so a request without the token learns nothing about the payout (D-037), and then drops them.
+- **Reports.** The prompt names the fund currency and its symbol. Number matching compares canonical figures, so "£1,250" and "£1,250.00" match, in every currency's format.
+- **Seed.** Every amount is written once in dollar terms and converted at the seeding rates, so the history adds up at any rates. Payouts mix all four currencies, rounded to two significant figures in their own currency.
+- **Internal-note guard** now rejects runs of 7 or more digits (was 10), because phone and account numbers elsewhere are shorter (UK accounts are 8 digits).
+- **Framing.** Recipient and public copy, README, DEMO_SCRIPT and Agent.md describe global use cases. The home page's "why privacy" text and the pitch story describe the risk in general terms instead of citing one country's event. Facts kept as records (the testnet run's ₦5,000 payout in ZINGO_NOTES, README and DEMO_SCRIPT, and the audit in AUDIT.md) are unchanged.

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as z from "zod";
 import type { Jobs } from "../jobs.js";
+import { CURRENCY_CODES, checkAmount } from "../lib/currency.js";
 import { HttpError, parseBody } from "../lib/http.js";
 import type { AppContext } from "../services/context.js";
 import { listDonations } from "../services/donations.js";
@@ -16,11 +17,14 @@ import {
 import { generateReport, listReports, publishReport, type ReportWriter } from "../services/reports.js";
 import { requireAdmin } from "./auth.js";
 
-// Phone numbers (11 digits in Nigeria) and NUBAN account numbers (10) are recipient identity.
-const LONG_DIGIT_RUN = /\d(?:[\s-]?\d){9,}/;
+// Phone numbers and bank account numbers are recipient identity. In most countries both run to 7 or more digits
+// (UK accounts are 8, Canadian 7 to 12), so the note rejects any run of 7 or more digits, spaces and dashes allowed.
+const LONG_DIGIT_RUN = /\d(?:[\s-]?\d){6,}/;
 
 const CreatePayoutBody = z.object({
-  amountNgn: z.int().min(500).max(5_000_000),
+  /** Major units with up to 2 decimals (19.99); per-currency limits are checked below. */
+  amount: z.number().positive(),
+  currency: z.enum(CURRENCY_CODES).optional(),
   category: z.enum(CATEGORIES),
   internalNote: z
     .string()
@@ -45,7 +49,8 @@ export function adminRoutes(ctx: AppContext, jobs: Jobs, reportWriter: ReportWri
       lastSyncAt: jobs.lastSyncAt,
       lastSyncError: jobs.lastSyncError,
       counts: statusCounts(ctx.db),
-      zecNgn: quote.zecNgn,
+      fundCurrency: ctx.env.FUND_CURRENCY,
+      rates: quote.rates,
       mode: ctx.env.ZCASH_MODE,
       network: ctx.env.ZCASH_NETWORK,
     };
@@ -62,7 +67,7 @@ export function adminRoutes(ctx: AppContext, jobs: Jobs, reportWriter: ReportWri
 
   r.get("/donations", async (_req, res) => {
     const quote = await ctx.price.get();
-    res.json(listDonations(ctx.db, quote.zecNgn));
+    res.json(listDonations(ctx.db, quote.rates[ctx.env.FUND_CURRENCY], ctx.env.FUND_CURRENCY));
   });
 
   r.get("/payouts", (_req, res) => {
@@ -70,8 +75,11 @@ export function adminRoutes(ctx: AppContext, jobs: Jobs, reportWriter: ReportWri
   });
 
   r.post("/payouts", async (req, res) => {
-    const body = parseBody(CreatePayoutBody, req.body);
-    res.status(201).json(await createPayout(ctx, body));
+    const { amount, currency: chosen, ...rest } = parseBody(CreatePayoutBody, req.body);
+    const currency = chosen ?? ctx.env.FUND_CURRENCY;
+    const checked = checkAmount(amount, currency, "payout");
+    if ("error" in checked) throw new HttpError(400, "validation_error", { details: { formErrors: [], fieldErrors: { amount: [checked.error] } } });
+    res.status(201).json(await createPayout(ctx, { ...rest, amountMinor: checked.minor, currency }));
   });
 
   r.post("/payouts/:id/cancel", (req, res) => {

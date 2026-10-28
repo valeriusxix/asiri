@@ -4,7 +4,7 @@ import { PageTitle, PublicLayout } from "../components/Layout";
 import { QR } from "../components/QR";
 import { Alert, Button, ButtonLink, Card, CopyBox, DemoBadge, Field, Icon, Spinner, buttonClass, inputClass } from "../components/ui";
 import { common, donate as t } from "../copy";
-import { formatNgn } from "../format";
+import { CURRENCIES, CURRENCY_CODES, formatMoney, limitsText, parseAmount, withinLimits, type CurrencyCode } from "../currency";
 import { useAsync } from "../hooks";
 import type { Fund } from "../types";
 
@@ -53,7 +53,7 @@ export default function Donate() {
 
           {tab === "zcash" && <ZcashCard fund={fund.data} />}
 
-          {tab === "demo" && demoMode && <DemoDonation />}
+          {tab === "demo" && demoMode && <DemoDonation fundCurrency={fund.data.fundCurrency} />}
         </>
       )}
     </PublicLayout>
@@ -88,11 +88,14 @@ export function ZcashCard({ fund }: { fund: Fund }) {
   );
 }
 
-function DemoDonation() {
+/** Simulated card or bank donation, in any supported currency (default: the fund's). Labelled Demo throughout. */
+function DemoDonation({ fundCurrency }: { fundCurrency: CurrencyCode }) {
+  const [currency, setCurrency] = useState<CurrencyCode>(fundCurrency);
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<number | null>(null);
+  const [done, setDone] = useState<{ minor: number; currency: CurrencyCode } | null>(null);
+  const range = limitsText(currency, "donation");
 
   if (done !== null) {
     return (
@@ -103,7 +106,7 @@ function DemoDonation() {
         <h2 className="mt-4 flex items-center justify-center gap-2 text-2xl font-bold">
           {t.thanksTitle} <DemoBadge />
         </h2>
-        <p className="mx-auto mt-2 max-w-sm text-[15px] text-black/65">{t.thanksBody(formatNgn(done))}</p>
+        <p className="mx-auto mt-2 max-w-sm text-[15px] text-black/65">{t.thanksBody(formatMoney(done.minor, done.currency))}</p>
         <div className="mt-6 flex flex-col gap-2">
           <ButtonLink to="/transparency" variant="dark" block>
             {t.seeTransparency}
@@ -130,16 +133,16 @@ function DemoDonation() {
         className="space-y-5"
         onSubmit={async (e) => {
           e.preventDefault();
-          const value = Number(amount.replace(/[,\s₦]/g, ""));
-          if (!Number.isInteger(value) || value < 100 || value > 10_000_000) {
-            setError(t.amountInvalid);
+          const minor = parseAmount(amount, currency);
+          if (minor === null || !withinLimits(minor, currency, "donation")) {
+            setError(t.amountInvalid(range));
             return;
           }
           setBusy(true);
           setError(null);
           try {
-            await api.simulateDonation(value);
-            setDone(value);
+            await api.simulateDonation(minor / 100, currency);
+            setDone({ minor, currency });
           } catch (err) {
             setError(err instanceof ApiError && err.code === "network_error" ? common.offline : common.error);
           } finally {
@@ -151,20 +154,37 @@ function DemoDonation() {
           <DemoBadge className="mt-0.5" />
           <p className="text-[15px] text-black/65">{t.demoIntro}</p>
         </div>
-        <Field label={t.amountLabel} htmlFor="amount" help={t.amountHelp} error={error}>
+        <Field label={t.currencyLabel} htmlFor="currency">
+          <select
+            id="currency"
+            value={currency}
+            onChange={(e) => {
+              setCurrency(e.target.value as CurrencyCode);
+              setError(null);
+            }}
+            className={inputClass}
+          >
+            {CURRENCY_CODES.map((c) => (
+              <option key={c} value={c}>
+                {c} ({CURRENCIES[c].symbol})
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label={`${t.amountLabel} (${CURRENCIES[currency].symbol})`} htmlFor="amount" help={t.amountHelp(range)} error={error}>
           <input
             id="amount"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            inputMode="numeric"
-            placeholder="10000"
+            inputMode="decimal"
+            placeholder={String(CURRENCIES[currency].presets[1])}
             className={`${inputClass} text-lg tabular-nums`}
           />
         </Field>
         <div className="flex flex-wrap gap-2">
-          {[5_000, 20_000, 100_000].map((v) => (
+          {CURRENCIES[currency].presets.slice(0, 3).map((v) => (
             <button key={v} type="button" onClick={() => setAmount(String(v))} className={buttonClass("secondary", "sm")}>
-              {formatNgn(v)}
+              {formatMoney(v * 100, currency)}
             </button>
           ))}
         </div>

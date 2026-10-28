@@ -19,16 +19,16 @@ describe("payout creation", () => {
   it("fails with insufficient_funds on an empty treasury, succeeds after mock-donate + sync", async () => {
     const h = setup();
     const agent = await h.admin();
-    const empty = await agent.post("/api/admin/payouts").send({ amountNgn: 50_000, category: "medical" });
+    const empty = await agent.post("/api/admin/payouts").send({ amount: 50_000, category: "medical" });
     expect(empty.status).toBe(409);
     expect(empty.body).toEqual({ error: "insufficient_funds", availableZat: 0 });
 
     await h.fund(ONE_ZEC);
-    const ok = await agent.post("/api/admin/payouts").send({ amountNgn: 50_000, category: "medical" });
+    const ok = await agent.post("/api/admin/payouts").send({ amount: 50_000, category: "medical" });
     expect(ok.status).toBe(201);
     expect(ok.body.pin).toMatch(/^\d{6}$/);
     expect(ok.body.link).toMatch(/^http:\/\/localhost:5173\/c\/[A-Za-z0-9]{10}#[A-Za-z0-9_-]{43}$/);
-    expect(ok.body.payout).toMatchObject({ amountZat: 83_333_333, feeBufferZat: 20_000, amountNgn: 50_000, status: "active" });
+    expect(ok.body.payout).toMatchObject({ amountZat: 83_333_333, feeBufferZat: 20_000, currency: "NGN", amountFiatMinor: 5_000_000, amountDisplay: "₦50,000", status: "active" });
 
     const overview = await agent.get("/api/admin/overview");
     expect(overview.body).toMatchObject({
@@ -43,7 +43,7 @@ describe("payout creation", () => {
     const h = setup();
     await h.fund(83_353_332); // one zat short of 50,000 NGN + buffer
     const agent = await h.admin();
-    const res = await agent.post("/api/admin/payouts").send({ amountNgn: 50_000, category: "food" });
+    const res = await agent.post("/api/admin/payouts").send({ amount: 50_000, category: "food" });
     expect(res.status).toBe(409);
     expect(res.body.error).toBe("insufficient_funds");
   });
@@ -65,11 +65,16 @@ describe("payout creation", () => {
     const h = setup();
     await h.fund(ONE_ZEC);
     const agent = await h.admin();
-    expect((await agent.post("/api/admin/payouts").send({ amountNgn: 100, category: "medical" })).status).toBe(400);
-    expect((await agent.post("/api/admin/payouts").send({ amountNgn: 5000, category: "rent" })).status).toBe(400);
-    const phone = await agent.post("/api/admin/payouts").send({ amountNgn: 5000, category: "other", internalNote: "call 0803 123 4567" });
+    expect((await agent.post("/api/admin/payouts").send({ amount: 100, category: "medical" })).status).toBe(400);
+    expect((await agent.post("/api/admin/payouts").send({ amount: 5000, category: "rent" })).status).toBe(400);
+    const phone = await agent.post("/api/admin/payouts").send({ amount: 5000, category: "other", internalNote: "call 0803 123 4567" });
     expect(phone.status).toBe(400);
     expect(phone.body.error).toBe("validation_error");
+    // Identity numbers from other countries are caught too: a UK account number (8 digits), a US phone number.
+    for (const internalNote of ["acct 12345678", "ring (415) 555-0132", "+44 20 7946 0958"]) {
+      expect((await agent.post("/api/admin/payouts").send({ amount: 5000, category: "other", internalNote })).status, internalNote).toBe(400);
+    }
+    expect((await agent.post("/api/admin/payouts").send({ amount: 5000, category: "other", internalNote: "Clinic visit, week 2, room 104" })).status).toBe(201);
   });
 
   it("never exposes secrets, PINs or hashes in the admin list", async () => {
@@ -91,7 +96,7 @@ describe("claim flow", () => {
   it("happy path: donate -> sync -> create -> open -> unlock -> redeem to a Zcash address", async () => {
     const h = setup();
     await h.fund(2 * ONE_ZEC);
-    const { id, secret, pin } = await createPayout(h, { amountNgn: 50_000, category: "medical" });
+    const { id, secret, pin } = await createPayout(h, { amount: 50_000, category: "medical" });
 
     const opened = await request(h.app).post(`/api/claims/${id}/open`).send({ secret });
     expect(opened.status).toBe(200);
@@ -99,7 +104,7 @@ describe("claim flow", () => {
 
     const unlocked = await unlock(h, id, secret, pin);
     expect(unlocked.status).toBe(200);
-    expect(unlocked.body).toMatchObject({ amountZat: 83_333_333, amountNgnDisplay: "₦50,000", amountZecDisplay: "0.83333333 ZEC" });
+    expect(unlocked.body).toMatchObject({ amountZat: 83_333_333, amountDisplay: "₦50,000", amountZecDisplay: "0.83333333 ZEC" });
     expect(unlocked.body.claimToken).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const redeemed = await request(h.app)
@@ -365,7 +370,7 @@ describe("redeem reveals nothing without the claim token (audit L1)", () => {
     await cancelled.agent.post(`/api/admin/payouts/${cancelled.id}/cancel`).expect(200);
     const locked = await createPayout(h);
     for (let i = 0; i < 5; i++) await unlock(h, locked.id, locked.secret, wrongPin(locked.pin));
-    const expiring = await createPayout(h, { amountNgn: 50_000, category: "food", expiresInDays: 1 });
+    const expiring = await createPayout(h, { amount: 50_000, category: "food", expiresInDays: 1 });
 
     h.advance(DAY + 1000);
     for (const [label, id] of [["active", active.id], ["claimed", claimed.id], ["cancelled", cancelled.id], ["locked", locked.id], ["expired", expiring.id], ["unknown", "ZZZZZZZZZZ"]]) {
@@ -390,7 +395,7 @@ describe("expiry and cancellation", () => {
   it("an expired payout (via the job) opens as expired and releases its reservation", async () => {
     const h = setup();
     await h.fund(ONE_ZEC);
-    const { id, secret, pin, agent } = await createPayout(h, { amountNgn: 50_000, category: "legal", expiresInDays: 1 });
+    const { id, secret, pin, agent } = await createPayout(h, { amount: 50_000, category: "legal", expiresInDays: 1 });
     expect((await agent.get("/api/admin/overview")).body.reservedZat).toBe(83_353_333);
 
     h.advance(DAY + 1000);
@@ -412,7 +417,7 @@ describe("expiry and cancellation", () => {
   it("expiry is also enforced between job runs", async () => {
     const h = setup();
     await h.fund(ONE_ZEC);
-    const { id, secret } = await createPayout(h, { amountNgn: 5_000, category: "food", expiresInDays: 1 });
+    const { id, secret } = await createPayout(h, { amount: 5_000, category: "food", expiresInDays: 1 });
     h.advance(DAY + 1);
     expect((await request(h.app).post(`/api/claims/${id}/open`).send({ secret })).body.status).toBe("expired");
   });

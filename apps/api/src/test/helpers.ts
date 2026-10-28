@@ -18,8 +18,13 @@ export const TEST_ENV: Record<string, string> = {
   ZCASH_MODE: "mock",
   ZCASH_NETWORK: "testnet",
   PRICE_SOURCE: "fixed",
+  // Tests keep naira as the fund currency so the long-standing NGN expectations hold; USD, GBP and CAD payouts are
+  // tested explicitly. Rates are test values, not market prices.
+  FUND_CURRENCY: "NGN",
   FIXED_ZEC_NGN: "60000",
   FIXED_ZEC_USD: "40",
+  FIXED_ZEC_GBP: "32",
+  FIXED_ZEC_CAD: "50",
   FEE_BUFFER_ZAT: "20000",
 };
 
@@ -89,7 +94,7 @@ export function parseLink(link: string): { id: string; secret: string } {
 }
 
 /** Creates a payout through the admin API and returns the link parts + PIN. */
-export async function createPayout(h: Harness, body: Record<string, unknown> = { amountNgn: 50_000, category: "medical" }) {
+export async function createPayout(h: Harness, body: Record<string, unknown> = { amount: 50_000, currency: "NGN", category: "medical" }) {
   const agent = await h.admin();
   const res = await agent.post("/api/admin/payouts").send(body);
   if (res.status !== 201) throw new Error(`create payout failed: ${res.status} ${JSON.stringify(res.body)}`);

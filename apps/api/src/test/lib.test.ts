@@ -13,7 +13,8 @@ import {
   verifySecret,
 } from "../lib/crypto.js";
 import { REDACT_PATHS } from "../lib/logger.js";
-import { formatNgn, formatZec, ngnToZat, zatToNgn, zatToZecString } from "../lib/money.js";
+import { CURRENCIES, CURRENCY_CODES, checkAmount, fiatMinorToZat, formatMoney, toMinor, zatToFiatMinor } from "../lib/currency.js";
+import { formatZec, zatToZecString } from "../lib/money.js";
 import { Mutex, withTimeout } from "../lib/mutex.js";
 
 describe("crypto", () => {
@@ -69,18 +70,62 @@ describe("money", () => {
     expect(zatToZecString(1)).toBe("0.00000001");
   });
 
-  it("formats display strings", () => {
-    expect(formatNgn(50_000)).toBe("₦50,000");
-    expect(formatNgn(1_234_567.6)).toBe("₦1,234,568");
+  it("formats ZEC display strings", () => {
     expect(formatZec(83_333_333)).toBe("0.8333 ZEC");
     expect(formatZec(83_333_333, 8)).toBe("0.83333333 ZEC");
     expect(formatZec(100_000_000)).toBe("1.00 ZEC");
   });
 
-  it("converts naira to zat and back", () => {
-    expect(ngnToZat(50_000, 60_000)).toBe(83_333_333);
-    expect(zatToNgn(83_333_333, 60_000)).toBe(50_000);
-    expect(Number.isInteger(ngnToZat(12_345, 61_234.56))).toBe(true);
+});
+
+describe("currencies", () => {
+  it("formats all four with their locale, symbol and decimals", () => {
+    expect(formatMoney(5_000_000, "NGN")).toBe("₦50,000");
+    expect(formatMoney(125_050, "NGN")).toBe("₦1,250.50");
+    expect(formatMoney(125_000, "USD")).toBe("$1,250.00");
+    expect(formatMoney(1_999, "GBP")).toBe("£19.99");
+    expect(formatMoney(125_000, "CAD")).toBe("CA$1,250.00");
+    expect(formatMoney(5, "USD")).toBe("$0.05");
+    expect(formatMoney(500_000_000, "NGN")).toBe("₦5,000,000");
+  });
+
+  it("defines every currency once, with 2 minor units and the specified limits", () => {
+    expect(CURRENCY_CODES).toEqual(["NGN", "USD", "GBP", "CAD"]);
+    for (const c of CURRENCY_CODES) expect(CURRENCIES[c].minorUnits).toBe(2);
+    expect(CURRENCIES.NGN.payout).toEqual({ min: 500, max: 5_000_000 });
+    for (const c of ["USD", "GBP", "CAD"] as const) expect(CURRENCIES[c].payout).toEqual({ min: 1, max: 5_000 });
+    expect(CURRENCIES.NGN.locale).toBe("en-NG");
+    expect(CURRENCIES.CAD.locale).toBe("en-CA");
+  });
+
+  it("turns entered amounts into minor units, refusing a third decimal", () => {
+    expect(toMinor(19.99, "USD")).toBe(1_999); // 19.99 * 100 is 1998.9999999999998 in floating point
+    expect(toMinor(0.1 + 0.2, "GBP")).toBe(30);
+    expect(toMinor(50_000, "NGN")).toBe(5_000_000);
+    expect(toMinor(1.005, "USD")).toBeNull();
+    expect(toMinor(Number.NaN, "CAD")).toBeNull();
+  });
+
+  it("converts fiat to zat and back, rounding to the nearest zatoshi", () => {
+    expect(fiatMinorToZat(5_000_000, 60_000, "NGN")).toBe(83_333_333); // ₦50,000 at ₦60,000 per ZEC
+    expect(fiatMinorToZat(4_000, 40, "USD")).toBe(100_000_000); // $40.00 at $40 per ZEC is exactly 1 ZEC
+    expect(fiatMinorToZat(1, 1_203.37, "GBP")).toBe(831); // 1 penny
+    expect(zatToFiatMinor(83_333_333, 60_000, "NGN")).toBe(5_000_000);
+    expect(zatToFiatMinor(1_000_000, 1_203.37, "USD")).toBe(1_203); // $12.0337 -> $12.03
+    expect(zatToFiatMinor(154_590_000, 1_600_000, "NGN")).toBe(247_344_000); // naira approximations are whole naira
+    for (const zat of [1, 999, 123_456_789]) expect(Number.isInteger(zatToFiatMinor(zat, 1_234.56, "CAD"))).toBe(true);
+  });
+
+  it("checks per-currency payout and donation limits", () => {
+    expect(checkAmount(499, "NGN", "payout")).toEqual({ error: "Amount must be between ₦500 and ₦5,000,000" });
+    expect(checkAmount(500, "NGN", "payout")).toEqual({ minor: 50_000 });
+    expect(checkAmount(5_000_001, "NGN", "payout")).toHaveProperty("error");
+    expect(checkAmount(0.99, "USD", "payout")).toEqual({ error: "Amount must be between $1.00 and $5,000.00" });
+    expect(checkAmount(5_000, "GBP", "payout")).toEqual({ minor: 500_000 });
+    expect(checkAmount(5_000.01, "CAD", "payout")).toEqual({ error: "Amount must be between CA$1.00 and CA$5,000.00" });
+    expect(checkAmount(12.345, "USD", "payout")).toEqual({ error: "Use at most 2 decimal places" });
+    expect(checkAmount(10_000, "USD", "donation")).toEqual({ minor: 1_000_000 });
+    expect(checkAmount(99, "NGN", "donation")).toHaveProperty("error");
   });
 });
 

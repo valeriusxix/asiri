@@ -1,12 +1,13 @@
 import { Router } from "express";
 import * as z from "zod";
-import { parseBody } from "../lib/http.js";
+import { CURRENCY_CODES, checkAmount } from "../lib/currency.js";
+import { HttpError, parseBody } from "../lib/http.js";
 import type { AppContext } from "../services/context.js";
 import { simulateDonation } from "../services/donations.js";
 import { getTransparency } from "../services/transparency.js";
 import { buildPaymentUri } from "../zcash/zip321.js";
 
-const SimulateBody = z.object({ amountNgn: z.int().min(100).max(10_000_000) });
+const SimulateBody = z.object({ amount: z.number().positive(), currency: z.enum(CURRENCY_CODES).optional() });
 
 export function publicRoutes(ctx: AppContext): Router {
   const { env } = ctx;
@@ -27,11 +28,12 @@ export function publicRoutes(ctx: AppContext): Router {
       paymentUri: buildPaymentUri({ address: receiveAddress, message: `Donation to ${env.FUND_NAME}` }),
       demoMode: env.DEMO_MODE,
       mode: env.ZCASH_MODE,
+      fundCurrency: env.FUND_CURRENCY,
     });
   });
 
   r.get("/price", async (_req, res) => {
-    res.json(await ctx.price.get());
+    res.json({ ...(await ctx.price.get()), fundCurrency: env.FUND_CURRENCY });
   });
 
   r.get("/transparency", async (_req, res) => {
@@ -44,7 +46,10 @@ export function publicRoutes(ctx: AppContext): Router {
       return;
     }
     const body = parseBody(SimulateBody, req.body);
-    res.json(await simulateDonation(ctx, body.amountNgn));
+    const currency = body.currency ?? env.FUND_CURRENCY;
+    const checked = checkAmount(body.amount, currency, "donation");
+    if ("error" in checked) throw new HttpError(400, "validation_error", { details: { formErrors: [], fieldErrors: { amount: [checked.error] } } });
+    res.json(await simulateDonation(ctx, checked.minor, currency));
   });
 
   return r;

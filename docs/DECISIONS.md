@@ -120,3 +120,6 @@ Section 12 rejects only invented numbers of 3 or more digits, so "47 families", 
 
 ## D-035 Production login requires HTTPS (audit M3)
 In production the session cookie is `Secure` (Section 8.3). Over plain HTTP, cookie-session silently skips it, so `POST /api/auth/login` returned 200 and the organizer was never logged in. Locally, `docker run -p 8787:8787`, which runs in production mode, hit exactly this. Production login over a non-secure request now returns `400 { error: "https_required" }`, before any credential check, and the login page explains it. Behind a TLS-terminating proxy, `trust proxy` (Section 13.9) makes `req.secure` true. The README's Docker section says how to try the image over `http://localhost`.
+
+## D-036 A reload after a claim says it was received (audit L2)
+Section 11.2 drops the secret from the address bar after "Done", and a URL without a fragment shows "This link is incomplete. Ask the sender to send it again." So a recipient who refreshed the page right after being paid was told to ask for a new link. On "Done", the claim page now writes `asiri:claimed:<payoutId>` to `sessionStorage` (only the id, cleared when the tab closes). A fragment-less load in the same tab then shows "You have received this support". If storage is blocked, the old message shows.

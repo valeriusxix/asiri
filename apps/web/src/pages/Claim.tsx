@@ -5,6 +5,7 @@ import { Logo, NetworkPill } from "../components/Layout";
 import { PinInput } from "../components/PinInput";
 import { Alert, Button, CopyBox, DemoBadge, Field, Icon, Spinner, inputClass } from "../components/ui";
 import { claim as t, claimAdvanced as adv } from "../copy";
+import { rememberClaimed, tabStorage, wasClaimedHere } from "../claimMemory";
 import { formatDateFriendly } from "../format";
 import { useHealth } from "../hooks";
 import type { ClaimRedeem, ClaimUnlock } from "../types";
@@ -20,6 +21,7 @@ type State =
   | { kind: "wallet" }
   | { kind: "keep" }
   | { kind: "done"; result: ClaimRedeem }
+  | { kind: "claimed_here" }
   | { kind: "terminal"; status: Terminal };
 
 /**
@@ -39,7 +41,8 @@ export function Claim() {
   const open = useCallback(async () => {
     const secret = secretRef.current;
     if (!secret) {
-      setState({ kind: "not_found", incomplete: true });
+      // A reload after "Done" has no secret any more: say it was received, not that the link is broken (audit L2).
+      setState(wasClaimedHere(tabStorage(), id) ? { kind: "claimed_here" } : { kind: "not_found", incomplete: true });
       return;
     }
     setState({ kind: "loading" });
@@ -61,6 +64,7 @@ export function Claim() {
 
   const finish = (result: ClaimRedeem) => {
     setState({ kind: "done", result });
+    rememberClaimed(tabStorage(), id);
     secretRef.current = "";
     history.replaceState(null, "", `/c/${id}`);
   };
@@ -111,6 +115,12 @@ export function Claim() {
             <Spinner className="size-8 text-ink/60" />
             <p className="mt-4 text-lg text-black/60">{t.loading}</p>
           </Centered>
+        )}
+
+        {state.kind === "claimed_here" && (
+          <Message icon="check" tone="success" title={t.claimedHereTitle}>
+            {t.claimedHere}
+          </Message>
         )}
 
         {state.kind === "not_found" && (

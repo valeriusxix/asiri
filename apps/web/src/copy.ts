@@ -156,6 +156,8 @@ export const claim = {
   keepDone: (date: string) => `Your link works until ${date}. Keep the message safe and open it again when you are ready.`,
   chooseAgain: "Choose another option",
   doneTitle: "Done. Take care.",
+  claimedHereTitle: "You have received this support",
+  claimedHere: "You can close this page now. Take care.",
   doneBank: "This was a demo, so no real bank transfer happened.",
   doneSent: "The money has been sent.",
   claimedTitle: "This support has already been received",

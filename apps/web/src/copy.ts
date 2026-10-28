@@ -84,6 +84,8 @@ export const transparencyCopy = {
   helped: "People helped",
   simulated: "Simulated card and bank donations",
   simulatedNote: "Demo only. Not counted in Raised.",
+  demoCashouts: "Demo bank cash-outs",
+  demoCashoutsNote: (n: number) => `Counted in Paid out (${n} ${n === 1 ? "payment" : "payments"}). Demo only: no real bank transfer happened.`,
   chartTitle: "Last 8 weeks",
   chartReceived: "Received",
   chartPaid: "Paid out",

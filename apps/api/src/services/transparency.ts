@@ -31,6 +31,9 @@ export interface Transparency {
     paidOutZat: number;
     outstandingZat: number;
     payoutsCount: number;
+    /** Part of paidOutZat / payoutsCount: demo cash-outs, where no real bank transfer or on-chain send happened. */
+    demoCashoutZat: number;
+    demoCashoutCount: number;
   };
   byCategory: CategoryTotal[];
   weekly: WeekTotal[];
@@ -77,6 +80,22 @@ export function periodTotals(db: DB, startIso: string, endIso: string) {
       endIso,
     ),
     payoutsCount: sum(db, `SELECT COUNT(*) v FROM payouts WHERE status='claimed' AND claimed_at >= ? AND claimed_at < ?`, startIso, endIso),
+    // Demo cash-outs are claimed, but no money moved (no off-ramp send), so they are shown apart from real payments.
+    // Same definition as payouts.settledOffchainZat (audit M1).
+    demoCashoutZat: sum(
+      db,
+      `SELECT COALESCE(SUM(amount_zat),0) v FROM payouts WHERE status='claimed' AND claim_method='cashout_demo' AND claim_txid IS NULL
+         AND claimed_at >= ? AND claimed_at < ?`,
+      startIso,
+      endIso,
+    ),
+    demoCashoutCount: sum(
+      db,
+      `SELECT COUNT(*) v FROM payouts WHERE status='claimed' AND claim_method='cashout_demo' AND claim_txid IS NULL
+         AND claimed_at >= ? AND claimed_at < ?`,
+      startIso,
+      endIso,
+    ),
     byCategory: categoryTotals(db, startIso, endIso),
   };
 }
@@ -140,6 +159,8 @@ export async function getTransparency(ctx: AppContext): Promise<Transparency> {
       paidOutZat: all.paidOutZat,
       outstandingZat: outstandingZat(db),
       payoutsCount: all.payoutsCount,
+      demoCashoutZat: all.demoCashoutZat,
+      demoCashoutCount: all.demoCashoutCount,
     },
     byCategory: all.byCategory,
     weekly,

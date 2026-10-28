@@ -27,7 +27,7 @@ const transparency = (mode: Transparency["mode"]): Transparency => ({
   network: "testnet",
   mode,
   currency: { zecNgn: 1_600_000, source: "fixed" },
-  totals: { receivedZat: 100_000_000, simulatedZat: 0, paidOutZat: 3_125_000, outstandingZat: 0, payoutsCount: 1 },
+  totals: { receivedZat: 100_000_000, simulatedZat: 0, paidOutZat: 3_125_000, outstandingZat: 0, payoutsCount: 1, demoCashoutZat: 0, demoCashoutCount: 0 },
   byCategory: [{ category: "medical", count: 1, amountZat: 3_125_000 }],
   weekly: [],
   latestReport: null,
@@ -68,5 +68,21 @@ describe("mock-mode placeholders are labelled Demo (audit H2)", () => {
     expect(text(<NetworkPillView network="testnet" mode="zingo" />)).toContain("TESTNET");
     expect(render(<NetworkPillView network="testnet" mode="zingo" />)).not.toContain("demo runs");
     expect(render(<NetworkPillView network="mainnet" mode="zingo" />)).toBe("");
+  });
+});
+
+describe("demo cash-outs are labelled where they are counted (audit M1)", () => {
+  it("shows the demo share of Paid out with a Demo badge", () => {
+    const data = transparency("zingo");
+    data.totals = { ...data.totals, paidOutZat: 6_250_000, payoutsCount: 2, demoCashoutZat: 3_125_000, demoCashoutCount: 1 };
+    const out = text(<TransparencyBody data={data} />);
+    expect(out).toContain(transparencyCopy.demoCashouts);
+    expect(out).toContain(transparencyCopy.demoCashoutsNote(1));
+    expect(out).toContain("₦50,000");
+    expect(out).toContain("Demo");
+  });
+
+  it("shows nothing extra when every payment was real", () => {
+    expect(text(<TransparencyBody data={transparency("zingo")} />)).not.toContain(transparencyCopy.demoCashouts);
   });
 });

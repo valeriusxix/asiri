@@ -18,6 +18,8 @@ const STATS: ReportStats = {
   simulatedDonations: "₦15,000",
   paidOut: "₦480,000",
   paymentsCount: 9,
+  demoCashouts: "₦45,000",
+  demoCashoutsCount: 2,
   waitingToBeClaimed: "₦70,000",
   byCategory: [
     { category: "medical", payments: 5, amount: "₦300,000" },

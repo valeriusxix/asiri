@@ -79,6 +79,15 @@ export function TransparencyBody({ data }: { data: TransparencyData }) {
         </div>
       )}
 
+      {data.totals.demoCashoutCount > 0 && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-amber-50/70 px-4 py-3 ring-1 ring-inset ring-amber-200">
+          <DemoBadge />
+          <span className="text-[15px] text-black/70">{t.demoCashouts}</span>
+          <span className="ml-auto text-[15px] font-semibold tabular-nums">{formatNgn(zatToNgn(data.totals.demoCashoutZat, data.currency.zecNgn))}</span>
+          <span className="w-full text-xs text-black/50">{t.demoCashoutsNote(data.totals.demoCashoutCount)}</span>
+        </div>
+      )}
+
       <Card>
         <Suspense fallback={<ChartPlaceholder />}>
           <WeeklyChart weekly={data.weekly} zecNgn={data.currency.zecNgn} />

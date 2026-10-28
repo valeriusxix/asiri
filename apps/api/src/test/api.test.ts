@@ -155,6 +155,8 @@ describe("transparency", () => {
       paidOutZat: 50_000_000,
       outstandingZat: 10_000_000,
       payoutsCount: 1,
+      demoCashoutZat: 0,
+      demoCashoutCount: 0,
     });
     expect(res.body.byCategory).toEqual([{ category: "medical", count: 1, amountZat: 50_000_000 }]);
     expect(res.body.weekly).toHaveLength(8);
@@ -168,6 +170,34 @@ describe("transparency", () => {
     const text = JSON.stringify(res.body);
     expect(text).not.toContain(p1.id);
     expect(text).not.toContain(TESTNET_ADDRESS);
+  });
+
+  it("breaks out demo cash-outs, where no money moved, from real payments (audit M1)", async () => {
+    const h = setup();
+    await h.fund(3 * ONE_ZEC);
+    const claim = async (p: { id: string; secret: string; pin: string }, body: Record<string, string>) => {
+      const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
+      await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, ...body }).expect(200);
+    };
+    await claim(await createPayout(h, { amountNgn: 30_000, category: "medical" }), { method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" });
+    await claim(await createPayout(h, { amountNgn: 6_000, category: "food" }), { method: "zcash_address", zcashAddress: TESTNET_ADDRESS });
+
+    const { totals } = (await request(h.app).get("/api/transparency")).body;
+    expect(totals).toMatchObject({ paidOutZat: 60_000_000, payoutsCount: 2, demoCashoutZat: 50_000_000, demoCashoutCount: 1 });
+
+    const agent = await h.admin();
+    const report = (await agent.post("/api/admin/reports/generate").send({ periodDays: 7 })).body;
+    expect(report.stats).toMatchObject({ paidOut: "₦36,000", demoCashouts: "₦30,000", demoCashoutsCount: 1 });
+    expect(report.body).toContain("This includes ₦30,000 in 1 demo cash-out, where no real bank transfer happened.");
+  });
+
+  it("a cash-out sent to OFFRAMP_ZCASH_ADDRESS moved real money, so it is not a demo cash-out", async () => {
+    const h = setup({ OFFRAMP_ZCASH_ADDRESS: TESTNET_ADDRESS });
+    await h.fund(3 * ONE_ZEC);
+    const p = await createPayout(h, { amountNgn: 30_000, category: "medical" });
+    const token = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;
+    await request(h.app).post(`/api/claims/${p.id}/redeem`).send({ claimToken: token, method: "cashout_demo", bankName: "UBA", accountNumber: "0123456789" }).expect(200);
+    expect((await request(h.app).get("/api/transparency")).body.totals).toMatchObject({ payoutsCount: 1, demoCashoutCount: 0, demoCashoutZat: 0 });
   });
 
   it("admin donations list includes memos; transparency never does", async () => {

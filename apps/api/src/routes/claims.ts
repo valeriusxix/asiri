@@ -10,11 +10,14 @@ import { openClaim, redeemClaim, unlockClaim } from "../services/payouts.js";
 const PAYOUT_ID = /^[A-Za-z0-9]{10}$/;
 const secret = z.string().min(16).max(128);
 const claimToken = z.string().min(16).max(128);
+// Every Zcash address encoding (unified, Sapling, TEX: bech32/bech32m; transparent: base58) is letters and digits only.
+// Anything else never reaches zingo-cli, where it would be a command-line argument (audit L8).
+const zcashAddress = z.string().trim().min(10).max(1000).regex(/^[A-Za-z0-9]+$/, "Not a Zcash address");
 
 const OpenBody = z.object({ secret });
 const UnlockBody = z.object({ secret, pin: z.string().regex(/^\d{6}$/, "PIN must be 6 digits") });
 const RedeemBody = z.discriminatedUnion("method", [
-  z.object({ claimToken, method: z.literal("zcash_address"), zcashAddress: z.string().trim().min(10).max(1000) }),
+  z.object({ claimToken, method: z.literal("zcash_address"), zcashAddress }),
   z.object({
     claimToken,
     method: z.literal("cashout_demo"),

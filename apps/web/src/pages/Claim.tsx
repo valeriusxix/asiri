@@ -214,7 +214,7 @@ export function Claim() {
                 finish(await api.claims.redeemToAddress(id, unlocked.claimToken, address));
                 return null;
               } catch (err) {
-                if (err instanceof ApiError && err.code === "invalid_address") return adv.invalid;
+                if (err instanceof ApiError && (err.code === "invalid_address" || err.code === "validation_error")) return adv.invalid;
                 return redeemError(err);
               }
             }}
@@ -494,7 +494,8 @@ function WalletStep({ unlocked, testnet, onBack, onSubmit }: { unlocked: ClaimUn
       noValidate
       onSubmit={async (e) => {
         e.preventDefault();
-        const value = address.trim();
+        // Pasted addresses often carry spaces or line breaks; no Zcash address contains any.
+        const value = address.replace(/\s+/g, "");
         if (value.length < 30) {
           setError(adv.invalid);
           return;

@@ -228,6 +228,32 @@ describe("claim flow", () => {
     expect(late.body.error).toBe("claim_session_expired");
   });
 
+  it("only letters and digits reach the wallet as an address, so nothing flag-shaped hits zingo-cli (audit L8)", async () => {
+    const h = setup();
+    await h.fund(ONE_ZEC);
+    const { id, secret, pin } = await createPayout(h);
+    const { claimToken } = (await unlock(h, id, secret, pin)).body;
+    let validated = 0;
+    const validate = h.mock.validateAddress.bind(h.mock);
+    h.mock.validateAddress = async (a: string) => {
+      validated++;
+      return validate(a);
+    };
+
+    for (const zcashAddress of ["--data-dir=/tmp/x", "-n --waitsync help", `utest1${"q".repeat(40)};rm -rf /`, `utest1 ${"q".repeat(40)}`]) {
+      const res = await request(h.app).post(`/api/claims/${id}/redeem`).send({ claimToken, method: "zcash_address", zcashAddress });
+      expect(res.status, zcashAddress).toBe(400);
+      expect(res.body.error).toBe("validation_error");
+    }
+    expect(validated).toBe(0);
+    expect(h.db.prepare("SELECT status FROM payouts WHERE id = ?").get(id)).toEqual({ status: "active" });
+
+    // Mixed-case base58 transparent addresses are still accepted.
+    const ok = await request(h.app).post(`/api/claims/${id}/redeem`).send({ claimToken, method: "zcash_address", zcashAddress: "tmVE5iqEQqXcVpp6cRnxyEJYbaK82W9bwhf" });
+    expect(ok.status).toBe(200);
+    expect(validated).toBeGreaterThan(0); // the route checks it, and the mock send checks it again
+  });
+
   it("a failed send returns the payout to active and keeps the token for a retry", async () => {
     const h = setup();
     await h.fund(ONE_ZEC);

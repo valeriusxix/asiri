@@ -84,9 +84,37 @@ With a disk attached, the demo data is seeded once; later boots leave the existi
 ## Optional
 
 - **AI-written updates:** add `ANTHROPIC_API_KEY` under Environment. Without it, reports use the template.
-- **Testnet or mainnet treasury (`ZCASH_MODE=zingo`):** this Blueprint doesn't set it up. It needs the zingo-cli binary, so it means:
-  - a `runtime: docker` service built from `docker/Dockerfile` (the full image compiles zingo-cli in Rust, which is slow);
-  - a paid plan with a disk at `/app/data`, the Dockerfile's data directory, for the treasury wallet;
-  - `LIGHTWALLETD_URL` set, and `SEED_DEMO_DATA` left off.
+- **Testnet treasury:** see the next section.
 
-  The Dockerfile has not been built on Render.
+## Testnet treasury (render.testnet.yaml)
+
+`render.testnet.yaml` is a second Blueprint. It sets up a service with a real Zcash testnet wallet instead of the mock treasury: `ZCASH_MODE=zingo` against `testnet.zec.rocks`, with `DEMO_MODE` off. It runs beside the free demo, as its own service (`asiri-testnet`) with its own URL.
+
+**This setup has not been built or run on Render.** The same flow ran end to end on testnet from a Windows machine on 26 October 2026 (README, "Testnet mode"). The Dockerfile has never been built, because the development machine has no Docker. Expect the first deploy to need fixes.
+
+### Deploy it
+1. In the Render Dashboard, click **New > Blueprint** and pick this repo.
+2. Set **Blueprint Path** to `render.testnet.yaml`.
+3. Enter `ADMIN_EMAIL` and `ADMIN_PASSWORD`.
+4. Apply. This creates a paid service (`plan: 1c-2g`) and a 1 GB disk, both billed by Render.
+   - The memory zingo-cli needs hasn't been measured; try `0.5c-512mb` if you want it cheaper.
+
+### What to expect
+- **A long first build.** The image compiles `zingo-cli` and `nym-proxy` from zingolib in Rust. On an 8-core Windows machine, zingo-cli alone took 19 minutes, and nym-proxy ran the machine out of memory twice (docs/ZINGO_NOTES.md).
+  - `CARGO_BUILD_JOBS=2` keeps the build's memory down. Render passes env vars to the Docker build as build args.
+  - If the build still hits Render's limits, it can't be finished on Render. The fallback is to build the image elsewhere and deploy it as a prebuilt image.
+- **A slow first boot.** The server creates the treasury wallet online before it starts listening, which took 113 s on testnet. Health checks fail until then.
+- **Back up the seed.** The boot log prints a backup command (never the seed itself).
+  1. Open the service's **Shell** tab.
+  2. Run the printed command, which ends in `recovery_info`.
+  3. Store the seed offline.
+
+  Render also snapshots the disk every day, but the seed is what recovers the funds.
+- **Disk permissions.** The image runs as the `node` user and writes to `/app/data`, where the disk is mounted. If boot fails with `EACCES` on `/app/data`, the disk isn't writable by that user. That needs a change to the Dockerfile, which hasn't been tested on Render.
+- **Funding.** Send testnet ZEC (TAZ) to the address on the Donate page. Then press **Sync now** in the dashboard, or wait for the next sync (`SYNC_INTERVAL_SECONDS=300`).
+- **Claims.** Each payout takes 40 to 200 s over the Nym mixnet, and the next one waits for the change to reach 3 confirmations.
+- **No bank cash-out.** With `DEMO_MODE=false`, recipients keep the payout or send it to their own Zcash wallet. Real bank or mobile-money cash-out needs a licensed partner and is not built.
+- **Mainnet is out of scope.** Don't switch `ZCASH_NETWORK` to `mainnet` until these are done (docs/ROADMAP.md):
+  - a security review;
+  - a way to settle a payout stuck in `claiming`;
+  - a plan for the single custodial key.

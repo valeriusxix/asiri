@@ -1,5 +1,6 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
+import { sha256Hex } from "../lib/crypto.js";
 import { ZcashError } from "../zcash/adapter.js";
 import { createPayout, parseLink, setup, TESTNET_ADDRESS } from "./helpers.js";
 
@@ -121,7 +122,8 @@ describe("claim flow", () => {
     expect(out[0]!.to_address).not.toContain(TESTNET_ADDRESS);
 
     const row = h.db.prepare(`SELECT status, claim_method, claim_txid, claim_token_hash FROM payouts WHERE id = ?`).get(id);
-    expect(row).toEqual({ status: "claimed", claim_method: "zcash_address", claim_txid: redeemed.body.txid, claim_token_hash: null });
+    // Only the spent token's hash is kept (so a replay gets 409), never the token itself (audit L1).
+    expect(row).toEqual({ status: "claimed", claim_method: "zcash_address", claim_txid: redeemed.body.txid, claim_token_hash: sha256Hex(unlocked.body.claimToken) });
 
     expect((await request(h.app).post(`/api/claims/${id}/open`).send({ secret })).body.status).toBe("claimed");
 
@@ -345,6 +347,42 @@ describe("claim flow", () => {
       .send({ claimToken, method: "cashout_demo", bankName: "Access Bank", accountNumber: "0123456789" });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("method_not_available");
+  });
+});
+
+describe("redeem reveals nothing without the claim token (audit L1)", () => {
+  it("a wrong token gets the same answer whatever the payout's status, and for unknown ids", async () => {
+    const h = setup();
+    await h.fund(5 * ONE_ZEC);
+    const garbage = { claimToken: "g".repeat(43), method: "zcash_address", zcashAddress: TESTNET_ADDRESS };
+    const redeemGarbage = (id: string) => request(h.app).post(`/api/claims/${id}/redeem`).send(garbage);
+
+    const active = await createPayout(h);
+    const claimed = await createPayout(h);
+    const t = (await unlock(h, claimed.id, claimed.secret, claimed.pin)).body.claimToken;
+    await request(h.app).post(`/api/claims/${claimed.id}/redeem`).send({ ...garbage, claimToken: t }).expect(200);
+    const cancelled = await createPayout(h);
+    await cancelled.agent.post(`/api/admin/payouts/${cancelled.id}/cancel`).expect(200);
+    const locked = await createPayout(h);
+    for (let i = 0; i < 5; i++) await unlock(h, locked.id, locked.secret, wrongPin(locked.pin));
+    const expiring = await createPayout(h, { amountNgn: 50_000, category: "food", expiresInDays: 1 });
+
+    h.advance(DAY + 1000);
+    for (const [label, id] of [["active", active.id], ["claimed", claimed.id], ["cancelled", cancelled.id], ["locked", locked.id], ["expired", expiring.id], ["unknown", "ZZZZZZZZZZ"]]) {
+      const res = await redeemGarbage(id!);
+      expect([res.status, res.body], label).toEqual([401, { error: "claim_session_expired" }]);
+    }
+  });
+
+  it("the real token still gets the truthful answer: replaying it after a claim is a double claim", async () => {
+    const h = setup();
+    await h.fund(ONE_ZEC);
+    const { id, secret, pin } = await createPayout(h);
+    const { claimToken } = (await unlock(h, id, secret, pin)).body;
+    const body = { claimToken, method: "zcash_address", zcashAddress: TESTNET_ADDRESS };
+    await request(h.app).post(`/api/claims/${id}/redeem`).send(body).expect(200);
+    const replay = await request(h.app).post(`/api/claims/${id}/redeem`).send(body);
+    expect([replay.status, replay.body]).toEqual([409, { error: "already_processing" }]);
   });
 });
 

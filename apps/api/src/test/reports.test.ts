@@ -134,7 +134,7 @@ describe("Claude report writer", () => {
 describe("report stats privacy", () => {
   it("never include payout ids, internal notes, donor memos or addresses", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: 300_000_000, memo: "for Mama Ngozi" }).expect(201);
+    await h.mockDonate(300_000_000, "for Mama Ngozi");
     await h.jobs.runOnce();
     const p = await createPayout(h, { amountNgn: 30_000, category: "medical", internalNote: "Clinic visit, week 2" });
     const t = (await request(h.app).post(`/api/claims/${p.id}/unlock`).send({ secret: p.secret, pin: p.pin })).body.claimToken;

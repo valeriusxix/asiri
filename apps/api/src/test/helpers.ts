@@ -46,6 +46,14 @@ export function setup(envOverrides: Record<string, string> = {}, start = new Dat
   });
   const { ctx, jobs } = getServices(app);
 
+  /** A supertest agent that keeps the session cookie. */
+  const admin = async () => {
+    const agent = request.agent(app);
+    const res = await agent.post("/api/auth/login").send({ email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD });
+    if (res.status !== 200) throw new Error(`login failed: ${res.status}`);
+    return agent;
+  };
+
   return {
     db,
     env,
@@ -56,16 +64,14 @@ export function setup(envOverrides: Record<string, string> = {}, start = new Dat
     advance(ms: number) {
       clock.t += ms;
     },
-    /** A supertest agent that keeps the session cookie. */
-    async admin() {
-      const agent = request.agent(app);
-      const res = await agent.post("/api/auth/login").send({ email: env.ADMIN_EMAIL, password: env.ADMIN_PASSWORD });
-      if (res.status !== 200) throw new Error(`login failed: ${res.status}`);
-      return agent;
+    admin,
+    /** A mock donation, sent as the organizer (the dev routes need a session, audit H3). Not yet imported. */
+    async mockDonate(amountZat: number, memo?: string) {
+      await (await admin()).post("/api/dev/mock-donate").send({ amountZat, memo }).expect(201);
     },
     /** Fund the mock treasury and import it, as a donor + sync would. */
     async fund(amountZat: number) {
-      await request(app).post("/api/dev/mock-donate").send({ amountZat }).expect(201);
+      await (await admin()).post("/api/dev/mock-donate").send({ amountZat }).expect(201);
       await jobs.runOnce();
     },
   };

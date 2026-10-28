@@ -13,7 +13,7 @@ field() { node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const
 echo "1. Health";            curl -s "$B/health"; echo
 echo "2. Organizer login";   curl -s -c "$JAR" -H "$J" -d '{"email":"organizer@example.com","password":"change-me-now"}' "$B/auth/login"; echo
 echo "3. Mock donation (2 ZEC) + sync"
-curl -s -H "$J" -d '{"amountZat":200000000,"memo":"stay strong"}' "$B/dev/mock-donate" >/dev/null
+curl -s -b "$JAR" -H "$J" -d '{"amountZat":200000000,"memo":"stay strong"}' "$B/dev/mock-donate" >/dev/null   # organizer session required
 curl -s -b "$JAR" -X POST "$B/admin/sync" | field availableZat | sed 's/^/   availableZat: /'
 
 echo "4. New payout: N50,000 medical"

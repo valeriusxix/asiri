@@ -108,3 +108,6 @@ The `.env.example` `SESSION_SECRET` is public and long enough to pass the 32-cha
 
 ## D-031 Mock placeholders are labelled on public pages (audit H2)
 In mock mode the treasury address, its QR code and the viewing key are fakes that no wallet accepts, and every total is mock data. `/api/fund` and `/api/transparency` add `mode` (additive, like D-017). When `mode` is `"mock"`, the Donate card and the transparency page show a Demo badge and say the address, totals and key are placeholders. The header pill reads **DEMO** instead of TESTNET, because mock mode touches no network at all (Section 11.1's TESTNET pill still shows whenever a real treasury runs on testnet). The web app now has render tests (`apps/web/src/test`, Vitest with `react-dom/server`), run by root `npm test`.
+
+## D-032 Dev routes need the organizer session (audit H3)
+Section 8.5 mounts `/api/dev/mock-donate` in mock mode without saying who may call it. The demo is served on a LAN (DEMO_SCRIPT), so an open route let anyone on the same Wi-Fi inflate the public totals (one call accepted 21 million ZEC) and write memos into the organizer's donation list. The dev router now requires the admin session, and `amountZat` is capped at 100 ZEC per call. The admin's "Add 0.5 ZEC" button, the curl walkthrough and the test helper send the session cookie.

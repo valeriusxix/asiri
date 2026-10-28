@@ -104,6 +104,19 @@ describe("public routes", () => {
     expect((await request(h.app).post("/api/donations/simulate").send({ amountNgn: 1000 })).status).toBe(404);
   });
 
+  it("mock-donate needs the organizer session and caps the amount (audit H3)", async () => {
+    const h = setup();
+    const anon = await request(h.app).post("/api/dev/mock-donate").send({ amountZat: 2_100_000_000_000_000, memo: "anyone can write this" });
+    expect(anon.status).toBe(401);
+    expect(anon.body).toEqual({ error: "unauthorized" });
+    await h.jobs.runOnce();
+    expect((await request(h.app).get("/api/transparency")).body.totals.receivedZat).toBe(0);
+
+    const agent = await h.admin();
+    expect((await agent.post("/api/dev/mock-donate").send({ amountZat: 100 * ONE_ZEC + 1 })).status).toBe(400);
+    expect((await agent.post("/api/dev/mock-donate").send({ amountZat: 100 * ONE_ZEC })).status).toBe(201);
+  });
+
   it("dev routes are 404 outside mock mode", async () => {
     const h = setup({ ZCASH_MODE: "zingo", LIGHTWALLETD_URL: "https://example.invalid:443" });
     expect((await request(h.app).post("/api/dev/mock-donate").send({ amountZat: 1000 })).status).toBe(404);
@@ -159,7 +172,7 @@ describe("transparency", () => {
 
   it("admin donations list includes memos; transparency never does", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: ONE_ZEC, memo: "for the clinic" }).expect(201);
+    await h.mockDonate(ONE_ZEC, "for the clinic");
     await h.jobs.runOnce();
     await h.jobs.runOnce(); // idempotent import
     const agent = await h.admin();
@@ -194,7 +207,7 @@ describe("reports (template)", () => {
 describe("admin sync", () => {
   it("POST /api/admin/sync imports mock donations and returns the overview", async () => {
     const h = setup();
-    await request(h.app).post("/api/dev/mock-donate").send({ amountZat: ONE_ZEC }).expect(201);
+    await h.mockDonate(ONE_ZEC);
     const agent = await h.admin();
     const res = await agent.post("/api/admin/sync");
     expect(res.status).toBe(200);

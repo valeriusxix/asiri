@@ -201,7 +201,7 @@ It runs these calls (shown here by hand, with `$B=http://localhost:8787/api`):
 curl -s $B/health
 curl -s -c jar.txt -H 'Content-Type: application/json' \
   -d '{"email":"organizer@example.com","password":"change-me-now"}' $B/auth/login
-curl -s -H 'Content-Type: application/json' -d '{"amountZat":200000000}' $B/dev/mock-donate   # fake 2 ZEC donation
+curl -s -b jar.txt -H 'Content-Type: application/json' -d '{"amountZat":200000000}' $B/dev/mock-donate   # fake 2 ZEC donation (organizer only)
 curl -s -b jar.txt -X POST $B/admin/sync                                                     # import it
 curl -s -b jar.txt -H 'Content-Type: application/json' \
   -d '{"amountNgn":50000,"category":"medical"}' $B/admin/payouts        # -> { link, pin, whatsappUrl, ... }
